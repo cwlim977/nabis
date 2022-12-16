@@ -1,0 +1,484 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.or.ddit.pay.dao.PayrollDAO">
+
+<!--[급여대장]================================================================================================ -->	
+	<!-- 급여정산 급여대장생성 -->
+	
+	<insert id="insertProll" parameterType="PayrollVO">
+		<selectKey resultType="string" order="BEFORE" keyProperty="prNo">
+			SELECT 'PR' || LPAD(NVL(TO_NUMBER(SUBSTR(MAX(PR_NO),3)), 0)+1, 3, '0')
+			FROM PAYROLL
+		</selectKey>
+		INSERT INTO PAYROLL(
+			  PR_NO
+			, PR_PTNO
+			, PRR
+			, PR_SDATE
+			, PR_EDATE
+			, PR_GDATE
+			, PR_NM
+			, PR_BLG
+		)VALUES(
+			  #{prNo, jdbcType=VARCHAR}
+			, #{prPtno,jdbcType=VARCHAR}
+			, #{prr,jdbcType=VARCHAR}
+			, TO_DATE(#{prSdate,jdbcType=DATE}, 'YYYY-MM-DD')
+			, TO_DATE(#{prEdate,jdbcType=DATE}, 'YYYY-MM-DD')
+			, TO_DATE(#{prGdate,jdbcType=DATE}, 'YYYY-MM-DD')
+			, #{prNm,jdbcType=VARCHAR}
+			, #{prBlg,jdbcType=VARCHAR}
+		)
+	</insert>
+
+	<!-- 급여정산시 정산 별 필요한 급여대장, 템플릿 정보 조회 -->	
+	<resultMap type="PayrollVO" id="prollMap" autoMapping="true">
+		<id property="prNo" column="PR_NO" />
+		<collection property="ptmList" ofType="PtMakeVO" autoMapping="true">
+			<id property="ptmNo" column="PTM_NO"/>
+		</collection>
+	</resultMap>
+	<select id="selectProll" resultMap="prollMap" parameterType="PayrollVO">
+		SELECT
+				R.PR_NO, 	R.PR_PTNO, 	
+				TO_CHAR(R.PR_SDATE,'YYYY-MM-DD') PR_SDATE, 
+				TO_CHAR(R.PR_EDATE,'YYYY-MM-DD') PR_EDATE, 
+				TO_CHAR(R.PR_GDATE, '""YYYY". "MM". "DD"."') PR_GDATE,
+				R.PR_NM, 	R.PR_BLG, 
+				TO_CHAR(R.PR_FDATE,'YYYY-MM-DD') PR_FDATE,
+				(SELECT PT_NM FROM PAYTPL WHERE PT_NO = R.PR_PTNO) PT_NM,
+				M.DD_CODE, 	M.PDD_AMT, 	M.PY_CODE, 	M.PPY_AMT,
+				(SELECT DD_NM FROM DED WHERE DD_CODE = M.DD_CODE) DD_NM,
+				(SELECT PY_NM FROM PAY WHERE PY_CODE = M.PY_CODE) PY_NM,
+				(SELECT PARENT_DCD FROM DED WHERE  DD_CODE = M.DD_CODE) DD_PRCODE
+		FROM 	PAYROLL R INNER JOIN PTMAKE M ON (R.PR_PTNO = M.PT_NO)
+		WHERE 	R.PR_PTNO = #{prPtno, jdbcType=VARCHAR}
+		AND 	R.PR_NO = #{prNo, jdbcType=VARCHAR}
+		ORDER BY M.PY_CODE ASC, M.DD_CODE ASC
+	</select>
+	
+	<!-- 급여정산 삭제 -->
+	<update id="deleteProll" parameterType="string">
+		UPDATE PAYROLL 
+		   SET DELYN = 'Y' 
+		 WHERE PR_NO = #{prNo}
+	</update>
+	
+	<!-- 선택한 귀속연도에 속하는 급여정산(급여대장) 목록 조회-->
+	<select id="selectProllList" parameterType="string" resultType="PayrollVO">
+	  	SELECT 
+	  		 	PR_NO, PR_PTNO, PRR,
+	  		    (SELECT EMP_NM FROM EMP WHERE EMP_NO = PRR) PRR_NM, 
+	  		    PR_SDATE, PR_EDATE,  PR_FDATE,
+	  		    TO_CHAR(PR_GDATE, '""YYYY". "MM". "DD"."') PR_GDATE,
+                PYTL, DDTL, TLAMT, 
+                PR_NM, PR_BLG
+        FROM 	PAYROLL 
+        		INNER JOIN EMP ON (EMP_NO = PRR)
+        WHERE   SUBSTR(PR_BLG,1,4) =  #{blgYear}
+          AND   FINYN = 'Y'
+          AND   DELYN IS NULL
+       ORDER BY PR_NO DESC
+	</select>
+	
+	
+<!--[대상자]================================================================================================ -->	
+
+	<!-- 정산 기간 중 근무기록 있는 대상자 목록 조회 -->
+	<select id="selectEmpList" resultType="WkApVO" parameterType="PayrollVO">
+		SELECT 
+				DISTINCT(WA_APER)
+		FROM 	WK_AP
+		WHERE 	EW_APST = '승인'
+		AND 	WA_DEL IS NULL
+		AND 	WA_DATE BETWEEN #{prSdate,jdbcType=DATE} AND #{prEdate,jdbcType=DATE}
+	</select>
+
+	<!-- 대상자 근무유형 조회 -->
+	<select id="selectEmpCase" resultType="string" parameterType="string">
+		SELECT 
+				BL_CASE
+        FROM(
+                SELECT *
+                FROM CNTHX
+                WHERE CNT_CNGR = #{empNo}
+                AND DELYN IS NULL
+                AND BLCT_SDATE IS NOT NULL
+            	<![CDATA[ 
+                AND BLCT_SDATE <= SYSDATE
+                AND BLCT_EDATE >= SYSDATE
+               ]]>
+                ORDER BY CNTHX_NO DESC)
+        WHERE ROWNUM = 1
+	</select>
+	
+	<!-- 선택한 사원들을 정산 대상자로 확정 -->
+	<insert id="insertPayEmp" parameterType="PrEmpVO">
+		INSERT INTO PREMP (
+			      PREMP_NO, PR_NO, EMP_NO
+		)
+		SELECT PREMP_SEQ.NEXTVAL, A.* FROM(
+		<foreach collection="payempList" item="emp" separator="UNION ALL">	   
+    		SELECT
+    				  #{emp.prNo, jdbcType=VARCHAR}
+    				, #{emp.empNo, jdbcType=VARCHAR}
+    		FROM DUAL
+    	</foreach>
+       ) A
+	</insert>
+	
+	<!-- 정산 별 확정된 대상자 목록 조회 -->
+	<select id="selectPayEmpList" parameterType="string" resultType="PrEmpVO">
+		SELECT 
+				DISTINCT(EMP_NO), 
+			   (SELECT EMP_NM FROM EMP E WHERE E.EMP_NO = R.EMP_NO) EMP_NM 
+		FROM   PREMP R WHERE R.PR_NO = #{prNo, jdbcType=VARCHAR}
+		<!-- SELECT EMP_NO FROM PREMP WHERE PR_NO = #{prNo, jdbcType=VARCHAR} -->
+	</select>
+	
+<!--[지급/공제 공통]================================================================================================ -->	
+
+	<!-- 사원 별 정산내역 등록 -->
+	<insert id="insertPayRcd" parameterType="PayRcdVO">
+		INSERT INTO PAYRCD (
+					  CODE_NO, PR_NO, EMP_NO
+					, CODE_NM, CODE_AMT, CODE_CD
+				)
+		SELECT PAYRCD_SEQ.NEXTVAL, A.* FROM(
+		<foreach collection="payrcdList" item="rcd" separator="UNION ALL">
+		 	SELECT 
+				  #{rcd.prNo, jdbcType=VARCHAR}
+				, #{rcd.empNo, jdbcType=VARCHAR}
+				, #{rcd.codeNm, jdbcType=VARCHAR}
+				, #{rcd.codeAmt, jdbcType=NUMERIC}
+				, #{rcd.codeCd, jdbcType=VARCHAR}
+			FROM DUAL
+		</foreach>
+		) A
+	</insert>
+	
+<!--[지급]================================================================================================ -->
+
+	<!-- 정산기간 중 총 근무시간 조회 -->
+	<select id="selectTotalWork" parameterType="hashMap" resultType="double">
+		SELECT 
+				NVL(SUM(WA_TLTIME),0) WA_TLTIME
+        FROM 	WK_AP 
+        WHERE 	WA_APER = #{empNo}
+          AND 	EW_APST= '승인'
+          AND 	WA_DEL IS NULL
+          AND 	WA_DATE BETWEEN #{prSdate, jdbcType=DATE} AND #{prEdate, jdbcType=DATE}
+	</select>
+	
+
+	<!-- 초과근무시간 조회 -->
+	<select id="selectOvertime" parameterType="hashMap" resultType="WkApVO">
+		SELECT 
+				 WA_APER, NVL(SUM(WA_EXTIME),0) WA_EXTIME, NVL(SUM(WA_NIGTIME),0) WA_NIGTIME, NVL(SUM(WA_HDTIME),0) WA_HDTIME
+		FROM 	 WK_AP
+		WHERE 	 WA_APER = #{empNo}
+		  AND 	 EW_APST = '승인'
+		  AND 	 WA_DEL IS NULL
+		  AND 	 WA_DATE BETWEEN #{prSdate, jdbcType=DATE} AND #{prEdate, jdbcType=DATE}
+		GROUP BY WA_APER
+	</select>
+	
+<!--[공제]================================================================================================ -->
+
+	<!-- 공제 시 필요한 과세금액 조회 / 중복거르기 위해 시퀀스(CODE_NO) 가장 큰 항목 코드들만 조회 -->	
+	<select id="selectTaxable" parameterType="PayRcdVO" resultType="int">
+			WITH TABTWO AS(
+			    SELECT  MAX(CODE_NO) AS CODE_NO, 
+			            EMP_NO,
+			            CODE_CD
+			     FROM PAYRCD 
+			     WHERE PR_NO = #{prNo, jdbcType=VARCHAR}
+			     GROUP BY EMP_NO, CODE_CD
+			     ORDER BY EMP_NO, CODE_CD
+			)
+			SELECT 
+			        NVL(SUM(P.CODE_AMT),0) TAXABLE
+			FROM (TABTWO T INNER JOIN PAYRCD P 
+			        ON T.CODE_NO = P.CODE_NO)
+			    LEFT OUTER JOIN PAY A
+			        ON P.CODE_CD = A.PY_CODE
+			WHERE PY_CODE IS NOT NULL
+			AND PY_TAX = 'Y'
+			AND T.EMP_NO = #{empNo, jdbcType=VARCHAR}
+			ORDER BY  T.EMP_NO, T.CODE_CD
+	</select>
+
+	<!-- 공제대상 가족 수 조회 -->
+	<select id="selectFamCount" parameterType="string" resultType="int">
+		SELECT 
+				COUNT(FAM_RLN) FAM_CNT 
+		FROM 	EMP_FAM
+		WHERE 	EFAM_EMPNO = #{empNo}
+	</select>
+	
+	<!-- 7세 이상 20세 이하 자녀의 수 조회 -->
+	<select id="selectChdCount" parameterType="string" resultType="int">
+		WITH 	CHILDVIEW AS (SELECT '20' || SUBSTR(FAM_REGNO1,1,2) CHILD_YEAR, EFAM_NO FROM EMP_FAM  )
+		SELECT 	
+				COUNT(F.EFAM_NO) CHILD_CNT 
+		FROM 	EMP_FAM F INNER JOIN CHILDVIEW V ON (F.EFAM_NO = V.EFAM_NO)
+		WHERE 	V.CHILD_YEAR BETWEEN 2003 AND 2015
+		 AND 	F.FAM_RLN = '자녀·손자녀(자녀 세액공제 해당)'
+		 AND 	F.EFAM_EMPNO = #{empNo}
+	</select>
+	
+	<!-- 근로소득 간이세액표 조회 -->
+	<select id="selectIcmTax" parameterType="int" resultType="IcmTaxVO">
+		SELECT
+				ICT_CD,	ICT01,	ICT02,	ICT03,	ICT04,	ICT05,	
+				ICT06,	ICT07,	ICT08,	ICT09,	ICT10,	ICT11
+		FROM 	ICMTAX 
+				<![CDATA[ 
+		WHERE 	#{monthlyInc} >= ICT_STDM
+		  AND 	#{monthlyInc} < ICT_STDL
+		  		]]>
+	</select>
+	
+<!--[미리보기]================================================================================================ -->
+
+	<!-- 정산 별 요약 목록 조회 (전체사원) -->	
+	<select id="selectPaySumList" parameterType="string" resultType="PayRcdVO">
+		  WITH TABTWO AS(
+    			SELECT   MAX(CODE_NO) AS CODE_NO, 
+            			 EMP_NO,
+            			 CODE_CD,
+            			 SUBSTR(CODE_CD,2,1) AS "CLF"
+     			FROM 	 PAYRCD 
+     			WHERE 	 PR_NO = #{prNo}
+     			GROUP BY EMP_NO, CODE_CD
+     			ORDER BY EMP_NO, CODE_CD
+		)	
+		SELECT 
+        		P.CODE_CD,
+       			P.CODE_NM,
+       			COUNT(P.EMP_NO) EMP_CNT,
+       			SUM(P.CODE_AMT) SUM_AMT,
+       			CLF
+		FROM 	TABTWO T INNER JOIN PAYRCD P
+				ON T.CODE_NO = P.CODE_NO
+		WHERE 	PR_NO = #{prNo}
+		<![CDATA[
+		  AND 	P.CODE_AMT > 0	
+		]]>
+		GROUP BY (P.CODE_CD,P.CODE_NM,CLF)
+		ORDER BY P.CODE_CD ASC
+	</select>
+	
+	<!-- PAYRCD에서 중복값 제거 (시퀀스 가장 큰 최신 기록만 조회) -->
+	<sql id="withClause">
+		WITH TABTWO AS(
+		    SELECT  MAX(CODE_NO) AS CODE_NO, 
+		            EMP_NO,
+		            SUBSTR(CODE_CD,2,1) AS "CLF"
+		     FROM PAYRCD 
+		     WHERE PR_NO = #{prNo}
+		     GROUP BY EMP_NO, CODE_CD
+		     ORDER BY EMP_NO, CODE_CD
+		)
+	</sql>
+	
+	<!-- 정산 별 총 인원 수, 총 합계 조회 (전체사원) -->
+	<select id="selectTotalSumList" parameterType="string" resultType="PayRcdVO">
+		<include refid="withClause" />
+	    SELECT   
+	    		 T.CODE_NO,
+	             P.PR_NO,
+	             CLF,
+	             SUM(P.CODE_AMT) TOTAL_AMT,
+	             COUNT(DISTINCT(T.EMP_NO)) TOTAL_CNT
+	    FROM 	 TABTWO T INNER JOIN PAYRCD P
+	   			 ON T.CODE_NO = P.CODE_NO
+	    WHERE    PR_NO = #{prNo}
+	    GROUP BY (CLF,P.PR_NO), 
+	    ROLLUP	 (T.CODE_NO)
+	</select>
+	
+	<!-- 현재 정산의 이전 귀속연월 조회 -->
+	<select id="selectPrevBelong" parameterType="string" resultType="string">
+		SELECT 
+				TO_CHAR(ADD_MONTHS(TO_DATE(PR_BLG, 'YYYY-MM'),-1),'YYYY-MM') PREV_BLG  
+		FROM 	PAYROLL 
+		WHERE 	PR_NO = #{prNo}
+	</select>
+
+	<!-- 현재 템플릿을 사용한 지난 정산의 정산번호 조회  -->
+	<select id="selectPrevProllNo" parameterType="PayrollVO" resultType="string">
+		SELECT 
+				DISTINCT(R.PR_NO) 
+		FROM 	PAYRCD R INNER JOIN PAYROLL P 
+				ON R.PR_NO = P.PR_NO 
+		WHERE 	PR_BLG = #{prBlg} AND PR_PTNO = #{prPtno}
+	</select>
+	
+	<!-- 정산 별 세부내역 목록 조회  -->	
+	<select id="selectProllRecordList" parameterType="string" resultType="PayRcdVO">
+	   <include refid="withClause" />
+	    SELECT 
+	    		T.CODE_NO,
+           		P.PR_NO,
+           		P.CODE_CD,
+           		T.EMP_NO,
+           		CLF,
+           		P.CODE_AMT
+	    FROM 	TABTWO T INNER JOIN PAYRCD P
+    			ON T.CODE_NO = P.CODE_NO
+    	WHERE 	PR_NO = #{prNo}
+    	ORDER BY CODE_CD
+	</select>
+
+	<!-- 정산 완료 등록 -->
+	<update id="updateProllFin" parameterType="PayrollVO">
+		    UPDATE    
+		    		PAYROLL 
+		    SET	    
+		    		FINYN = 'Y'
+		          , PYTL = #{pytl,jdbcType=NUMERIC}
+		          , DDTL = #{ddtl,jdbcType=NUMERIC}
+		          , TLAMT = #{tlamt,jdbcType=NUMERIC}
+		          , PR_FDATE = SYSDATE
+		    WHERE 	PR_NO = #{prNo,jdbcType=VARCHAR}
+	</update>
+	
+	
+	<!-- ===================================================================== -->
+	
+	<!-- 귀속연도에 속하는 정산 번호 목록 조회 (사원별) / 귀속연도 파라미터 없는 경우 사원의 전체 정산 내역 조회 -->
+	<select id="selectProllbyYear" parameterType="hashmap" resultType="PayrollVO">
+		SELECT 
+				 DISTINCT(R.PR_NO),
+				 L.PR_PTNO,
+				 L.PR_BLG,
+				 TO_CHAR(L.PR_GDATE, '""YYYY". "MM". "DD"') PR_GDATE
+        FROM 	 PAYRCD R INNER JOIN PAYROLL L 
+        		 ON R.PR_NO = L.PR_NO
+        WHERE 	 R.EMP_NO = #{empNo}
+        AND 	 L.FINYN = 'Y'
+        AND 	 L.DELYN IS NULL
+        <if test="blgYear!=null">
+        AND 	 SUBSTR(L.PR_BLG, 1,4) = #{blgYear}
+        </if>
+        <if test="blgSdate">
+        AND      TO_DATE(L.PR_BLG || '-01') BETWEEN #{blgSdate, jdbcType=DATE} AND #{blgEdate, jdbcType=DATE}
+        </if>
+        ORDER BY R.PR_NO DESC
+	</select>
+	
+	<!-- 귀속연도에 속하는 정산 정보 중 총 금액 목록 조회  -->
+	<select id="selectTotalStub" parameterType="hashmap" resultType="PayRcdVO">
+		<include refid="withClause" />
+		SELECT   
+                 T.CODE_NO,
+                 P.PR_NO,
+                 CLF,
+                 SUM(P.CODE_AMT) TOTAL_AMT,
+                 (SELECT PR_BLG FROM PAYROLL WHERE P.PR_NO = PR_NO) PR_BLG
+          FROM 	 TABTWO T INNER JOIN PAYRCD P
+                 ON T.CODE_NO = P.CODE_NO
+          WHERE  PR_NO = #{prNo}
+          AND    P.EMP_NO = #{empNo}
+          GROUP BY  (CLF,P.PR_NO), 
+          ROLLUP    (T.CODE_NO)
+	</select>
+	
+	
+	<!-- 급여 명세 조회 -->
+	<select id="selectPaystub" parameterType="hashmap" resultType="PayRcdVO">
+		<include refid="withClause" />
+		SELECT 
+             	 T.CODE_NO,	T.EMP_NO,	E.EMP_NM,
+                 P.PR_NO,	P.CODE_CD,	P.CODE_NM,
+                 CLF,		P.CODE_AMT
+        FROM     TABTWO T INNER JOIN PAYRCD P
+             	 ON T.CODE_NO = P.CODE_NO
+                 INNER JOIN EMP E
+                 ON T.EMP_NO = E.EMP_NO
+        WHERE    PR_NO = #{prNo}
+          AND    T.EMP_NO = #{empNo}
+       ORDER BY CODE_CD
+	</select>
+	
+	
+	<!-- ===================================================================== -->
+	
+	<!-- 급여 증명서 발급 내역 조회 -->
+	<select id="selectCerfList" resultType="IncCerfVO">
+		SELECT 
+	 	      C.EMP_NO,	CF_NM,	
+	 	      TO_CHAR(ISDATE,'YYYY-MM-DD') ISDATE,
+		      EMP_NM, 	EMP_MAIL, ISUE_RSN
+		FROM INC_CERF C INNER JOIN EMP E 
+			 ON C.EMP_NO = E.EMP_NO
+		ORDER BY ISDATE DESC
+	</select>
+	
+	<!-- 급여 증명서 발급 내역 등록 -->
+	<insert id="insertCerf" parameterType="hashMap">
+		INSERT INTO INC_CERF (
+		      CF_NO
+		    , EMP_NO
+		    , CF_NM
+		    , ISDATE
+		    , ISUE_RSN
+		)VALUES(
+		    INCCERF_SEQ.NEXTVAL
+		    , #{empNo}
+		    , #{cfNm}
+		    , SYSDATE
+		    , #{isueRsn}
+		)
+	</insert>
+	
+	
+	
+	<!--[엑셀다운]================================================================================================ -->
+
+	<resultMap type="EmpVO" id="salaryTransferListExcelMap" autoMapping="true">
+		<id property="empNo" column="EMP_NO"/>
+		
+		<collection property="jobList" ofType="OwnJobVO" notNullColumn="OJ_NO" autoMapping="true">
+			<id property="ojNo" column="OJ_NO"/>
+		</collection>
+		
+		<collection property="deptList" ofType="BlgDeptVO" notNullColumn="BD_NO" autoMapping="true">
+			<id property="bdNo" column="BD_NO"/>
+		</collection>
+		
+	</resultMap>
+	<!-- 급여이체리스트조회 -->
+	<select id="selectSalaryTransferList" resultMap="salaryTransferListExcelMap" parameterType="string">
+		WITH MAX_ASGMT AS(
+		          SELECT MAX(ASGMT_NO) AS ASGMT_NO, ASGMT_PERS AS EMP_NO
+		          FROM ASGMT 
+		          WHERE ASGMT_PERS IN (SELECT EMP_NO FROM EMP)
+		          <![CDATA[AND ASGMT_DATE <= SYSDATE]]>
+		    	  AND ASGMT_CCST IS NULL
+		          GROUP BY ASGMT_PERS
+		          
+		    ), ASGMT_VIEW AS(
+		    SELECT * 
+		    FROM ASGMT A INNER JOIN MAX_ASGMT C ON (A.ASGMT_NO = C.ASGMT_NO 
+		                                            AND A.ASGMT_PERS = C.EMP_NO)
+		                LEFT OUTER JOIN BLG_DEPT B  ON (C.EMP_NO = B.ASGMT_PERS 
+		                                                AND C.ASGMT_NO = B.ASGMT_NO)
+		                LEFT OUTER JOIN OWN_JOB O   ON (C.EMP_NO = O.ASGMT_PERS 
+		                                                AND C.ASGMT_NO = O.ASGMT_NO)
+		    )SELECT 
+					        E.EMP_NM		, E.EMP_NO
+	                        , E.EMP_MAIL    , E.ENT_DATE    , E.OUT_DATE
+	                        , DE.DNM        , J.JNM			, A.BD_NO		
+	                        , A.OJ_NO		, DU.DTNM       , E.BANK
+	                        , E.ACCT_NO     , E.OWNER
+			                
+					FROM EMP E LEFT OUTER JOIN ASGMT_VIEW A ON ( E.EMP_NO = A.EMP_NO)
+								LEFT OUTER JOIN JOB J ON (A.JCODE = J.JCODE)
+								LEFT OUTER JOIN DEPT DE ON ( A.DCODE = DE.DCODE)
+	                            LEFT OUTER JOIN DUTY DU ON ( A.DTCODE = DU.DTCODE)
+	                WHERE E.EMP_NO IN (SELECT EMP_NO FROM PREMP WHERE PR_NO = #{prNo,jdbcType=VARCHAR})
+	                ORDER BY EMP_NO
+	</select>
+</mapper>

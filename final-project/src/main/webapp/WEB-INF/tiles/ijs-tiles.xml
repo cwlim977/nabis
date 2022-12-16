@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE tiles-definitions PUBLIC "-//Apache Software Foundation//DTD Tiles Configuration 3.0//EN" "http://tiles.apache.org/dtds/tiles-config_3_0.dtd" >
+<tiles-definitions>
+
+<!-- definition name == logical view name  // check servlet-context.xml -->
+
+  <definition name="pay/cerf/*" extends="parent" preparer="kr.or.ddit.pay.view.CerfViewPreparer">
+  	<put-attribute name="main" value="/WEB-INF/views/pay/cerf/{1}.jsp" />
+  </definition>
+  
+  <definition name="pay/stub/*" extends="parent" preparer="kr.or.ddit.pay.view.PaystubViewPreparer">
+  	<put-attribute name="main" value="/WEB-INF/views/pay/stub/{1}.jsp" />
+  </definition>
+  
+  <definition name="pay/serv/*" extends="parent" preparer="kr.or.ddit.pay.view.ServViewPreparer">
+  	<put-attribute name="main" value="/WEB-INF/views/pay/serv/{1}.jsp" />
+  </definition>
+  
+  <definition name="pay/tmpl/*" extends="parent">
+  	<put-attribute name="headerMenu" value="/includee/payTmpHeaderMenu.jsp" />
+  	<put-attribute name="main" value="/WEB-INF/views/pay/tmpl/{1}.jsp" />
+  </definition>
+  
+  <definition name="pay/wage/*" extends="parent">
+  	<put-attribute name="headerMenu" value="/includee/wageHeaderMenu.jsp" />
+  	<put-attribute name="main" value="/WEB-INF/views/pay/wage/{1}.jsp" />
+  </definition>
+  
+  <definition name="pay/sett/*" extends="parent">
+  	<put-attribute name="headerMenu" value="/includee/paySetHeaderMenu.jsp" />
+  	<put-attribute name="main" value="/WEB-INF/views/pay/sett/{1}.jsp" />
+  </definition>  
+  
+  <definition name="pay/*" extends="parent" preparer="kr.or.ddit.pay.view.PayrollViewPreparer">
+  	<put-attribute name="main" value="/WEB-INF/views/pay/{1}.jsp" />
+  </definition>
+
+  
+</tiles-definitions>

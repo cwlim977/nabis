@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.or.ddit.pay.dao.PayTmpDAO">
+
+<!-- 템플릿 생성 -->
+	<insert id="insertPayTmp" parameterType="PayTmpVO">
+		<selectKey resultType="string" order="BEFORE" keyProperty="ptNo">
+			SELECT 'PT' || LPAD(NVL(TO_NUMBER(SUBSTR(MAX(PT_NO),3)), 0)+1, 3, '0')
+			FROM PAYTPL
+		</selectKey>
+		INSERT INTO PAYTPL(
+			  PT_NO
+			, PT_NM
+			, PT_ABST
+			, PT_SDATE
+			, PTYN
+		) VALUES (
+			  #{ptNo,jdbcType=VARCHAR}
+			, #{ptNm,jdbcType=VARCHAR}
+			, #{ptAbst, jdbcType=VARCHAR}
+			, SYSDATE
+			, 'Y'
+		)
+	</insert>
+
+<!-- 템플릿 삭제 -->	
+	<update id="deletePayTmp" parameterType="string">
+		UPDATE PAYTPL
+		SET 
+			PTYN = 'N'
+		WHERE PT_NO = #{ptNo}
+	</update>
+
+<!-- 템플릿 리스트 조회 -->	
+	<select id="selectPayTmpList" resultType="PayTmpVO">
+		SELECT 
+			 PT_NO
+			,PT_NM
+			,PT_ABST
+			,PT_BMK
+		FROM PAYTPL
+		WHERE PTYN = 'Y'
+	</select>
+
+<!-- 템플릿 조회 -->
+	<select id="selectPayTmp" parameterType="string" resultType="PayTmpVO">
+		SELECT
+			 PT_NO
+ 			,PT_NM
+			,PT_ABST
+			,PT_SDATE
+			,PTYN 
+		FROM PAYTPL
+		WHERE PT_NO = #{ptNo}
+	</select>
+
+<!-- 템플릿 수정 -->	
+	<update id="updatePayTmp" parameterType="PayTmpVO">
+		UPDATE PAYTPL
+		SET 
+		    PT_NM = #{ptNm,jdbcType=VARCHAR}
+		   ,PT_ABST = #{ptAbst,jdbcType=VARCHAR}
+		WHERE PT_NO = #{ptNo,jdbcType=VARCHAR}
+	</update>
+
+<!-- 템플릿 북마크 등록 -->
+	<update id="createTmpBmk" parameterType="string">
+		UPDATE PAYTPL 
+		   SET PT_BMK ='Y' 
+		 WHERE PT_NO = #{ptNo}
+	</update>
+
+<!-- 템플릿 북마크 해제 -->
+	<update id="deleteTmpBmk" parameterType="string">
+		UPDATE PAYTPL
+  		   SET PT_BMK ='N' 
+		 WHERE PT_NO = #{ptNo}
+	</update>
+	
+</mapper>
+
+

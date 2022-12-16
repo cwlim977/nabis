@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.or.ddit.setting.dao.SettingDAO">
+   
+   
+   <select id="selectCompany" resultType="CompanyVO">
+   SELECT
+       COM_CD,
+       COM_NM,
+       COM_REP,
+       COM_TELNO,
+       TO_CHAR(ESTD_DATE, 'YYYY-MM-DD') "ESTD_DATE",
+       COM_ADDR,
+       COM_REGNO,
+       COR_REGNO    
+   FROM
+        COMPANY
+   </select>
+   
+   <insert id="insertCompany" parameterType="CompanyVO">
+      UPDATE COMPANY 
+      SET COM_NM = #{comNm}, 
+          COM_REP = #{comRep},
+          COM_TELNO = #{comTelno}, 
+          ESTD_DATE = #{estdDate}, 
+          COM_ADDR =  #{comAddr}, 
+          COM_REGNO = #{comRegno}, 
+          COR_REGNO = #{corRegno}      	
+      WHERE COM_CD = #{comCd} 
+   </insert>
+</mapper>

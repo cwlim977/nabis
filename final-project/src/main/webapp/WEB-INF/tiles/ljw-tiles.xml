@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE tiles-definitions PUBLIC "-//Apache Software Foundation//DTD Tiles Configuration 3.0//EN" "http://tiles.apache.org/dtds/tiles-config_3_0.dtd" >
+<tiles-definitions>
+	<!-- tiles 적용 -->
+	<definition name="parent" template="/WEB-INF/views/template.jsp">
+		<put-attribute name="title" value="NABIS" />
+		<put-attribute name="preScript" value="/includee/preScript.jsp" />
+		<put-attribute name="headerMenu" value="/includee/headerMenu.jsp" />
+		<put-attribute name="leftMenu" value="/includee/leftMenu.jsp" />
+		<put-attribute name="footer" value="/includee/footer.jsp" />
+		<put-attribute name="postScript" value="/includee/postScript.jsp" />
+	</definition>
+
+
+<!--   <definition name="home" extends="parent">
+    <put-attribute name="main" value="/WEB-INF/views/home.jsp" />
+  </definition> -->
+
+  <definition name="home/*" extends="parent" preparer="kr.or.ddit.home.view.NoticeViewPreparer">
+  	<put-attribute name="headerMenu" value="/includee/noticeHeaderMenu.jsp" />
+  	<put-attribute name="main" value="/WEB-INF/views/home/notice.jsp"/>
+  </definition>
+  <definition name="home/todo/*" extends="parent" preparer="kr.or.ddit.home.view.TodoViewPreparer">
+   	<put-attribute name="headerMenu" value="/includee/noticeHeaderMenu.jsp" />
+  	<put-attribute name="main" value="/WEB-INF/views/home/todo/{1}.jsp"/>
+  </definition>
+  <definition name="home/*" extends="parent" preparer="kr.or.ddit.home.view.HomeFeedViewPreparer">
+   	<put-attribute name="headerMenu" value="/includee/noticeHeaderMenu.jsp" />
+    <put-attribute name="main" value="/WEB-INF/views/home/{1}.jsp" />
+  </definition>
+
+  <definition name="cerf/*" extends="parent" preparer="kr.or.ddit.cerf.view.CerfViewPreparer">
+    <put-attribute name="main" value="/WEB-INF/views/cerf/{1}.jsp" />
+  </definition>
+  
+  <definition name="dept/*" extends="parent" >
+    <put-attribute name="main" value="/WEB-INF/views/dept/{1}.jsp" />
+  </definition>
+  
+  <definition name="pstn/*" extends="parent" >
+    <put-attribute name="main" value="/WEB-INF/views/pstn/{1}.jsp" />
+  </definition>
+  
+  <definition name="duty/*" extends="parent" >
+    <put-attribute name="main" value="/WEB-INF/views/duty/{1}.jsp" />
+  </definition>
+  
+  <definition name="job/*" extends="parent" >
+    <put-attribute name="main" value="/WEB-INF/views/job/{1}.jsp" />
+  </definition>
+  
+  <definition name="grd/*" extends="parent" >
+    <put-attribute name="main" value="/WEB-INF/views/grd/{1}.jsp" />
+  </definition>
+
+  <definition name="notice/*" extends="parent" preparer="kr.or.ddit.home.view.NoticeViewPreparer">
+    <put-attribute name="headerMenu" value="/includee/noticeHeaderMenu.jsp" />
+    <put-attribute name="main" value="/WEB-INF/views/notice/{1}.jsp" />
+  </definition>
+  
+  
+</tiles-definitions>

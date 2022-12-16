@@ -1,0 +1,216 @@
+@charset "UTF-8";
+
+/* COMMONS */
+.text-green{
+	color : #07b419;
+}
+
+.text-danger{
+	color : rgb(242, 75, 23);
+}
+
+.badge-green{
+	background-color: rgba(7, 180, 25, 0.12);
+    color: rgb(2, 54, 8);
+    font-weight: 600;
+}
+
+.badge-blue{
+	background-color: rgba(33, 97, 220, 0.12); 
+	color: rgb(10, 29, 66); 
+	font-weight: 600;
+}
+
+/* 휴직 */
+.badge-red{
+	background-color: rgba(242, 75, 23, 0.12);
+    color: rgb(75, 21, 4);
+    font-weight: 600;
+}
+/* 퇴직 */ 
+.badge-purple{
+	background-color: rgba(143, 64, 222, 0.12);
+    color: rgb(43, 13, 73);
+    font-weight: 600;
+}
+
+.border{
+	border-collapse: collapse;
+}
+
+.crimson{
+	color : #c32700;
+}
+
+/* PAYSTUB & CERFLIST============================= */
+
+.tg  {border-collapse:collapse !important;border-spacing:0;}
+.tg td{border-color:black;border-style:solid;border-width:0.3px !important; border-collapse:collapse !important;
+  overflow:hidden;word-break:normal;}
+.tg th{border-color:black;border-style:solid;border-width:0.3px !important; border-collapse:collapse !important; 
+  font-weight:normal;overflow:hidden;}
+
+#withholdCerfTable{
+  color : black;
+  padding : 8px 0px;
+  font-size: 20px;
+}
+
+/* WAGE============================= */
+dl{
+	height : 25px;
+}
+
+.stepnav{
+    width: 15%;
+    height: 700px;
+    position: sticky;
+    top : 0;
+
+}
+
+.calcdiv{
+    flex-grow: 1;
+    width : 82%;
+    float : left;
+}
+
+.stepbtn{
+	border : none;
+	background-color: transparent;
+	color : lightgray;
+	width : 130%;
+}
+
+.stepnum, .wibtn{
+	font-size: 10px;
+}
+
+/* WAGE 공통*/
+.thead{
+    background-color: #fdfdfd !important;
+    position : sticky;
+    top : 0;
+}
+
+
+
+/* WAGE EMP------------------ */
+
+.weschdiv{
+	position: relative;
+	width: 150px;
+	border: 1px solid lightgray;
+}
+
+.wesch{
+	margin-left: 15px;
+	width: 90%;
+  	padding: 10px 12px;
+  	font-size: 14px;
+  	border: none;
+  	color : transparent;
+}
+
+.wesch:focus{
+	border:none;
+	box-shadow:none;
+}
+
+.weschimg {
+  position : absolute;
+  width: 17px;
+  top: 13px;
+  margin: 0;
+}
+
+/*WAGE PAY & DED-----------------------*/
+.paysum, .dedsum{
+	background-color: rgb(245, 252, 247) !important;
+	font-weight: bold;
+}
+
+
+/*WAGE RES----------------------------*/
+.divres{
+	display: inline-block;
+	float: left;
+}
+
+.resvr{
+	color : #d9d9d9;
+}
+
+.resTopCard{
+	background-color:#fdfdfd;
+}
+
+/* PAYSTUB============================= */
+.sthd1{
+	width : 300px;
+	height: 35px;
+	position: absolute;
+	background-color: #fdfdfd;
+}
+
+.sthd2{
+	width : 100px;
+	height: 20px;
+	position: absolute;
+	background-color: #fdfdfd;
+}
+
+#withholdModal, #paystubModal{
+	top: 20%;
+	height : 100%;
+}
+
+
+/* PAYHOME============================= */
+.hmdiv{
+	background-color: #f6fdf7;
+}
+
+/* TMPFORM============================= */
+.paybg{
+	display: inline-block;
+}
+
+.pdbtn{
+	float : right;
+	margin-bottom: 20px;
+	margin-left: 10px;
+}
+
+.pd-div{
+	clear: both;
+}
+
+
+/* TMPLIST============================= */
+.ded{
+	border: 1px solid  rgba(67,89,113, 0.1);
+	float: left;
+	margin: 15px;
+}
+
+.div-box{
+	clear: both;
+}
+
+.dedset{
+	display: inline-block;
+}
+.dedsetbtn{
+	float: right;
+}
+
+/*	PAYTMPHEADER=======================*/
+/* 	TOAST */
+.pdtoast{
+    left: 50%;
+    position: fixed;
+    transform: translate(-50%, 0px);
+    z-index: 9999;
+	top : 10px;
+}

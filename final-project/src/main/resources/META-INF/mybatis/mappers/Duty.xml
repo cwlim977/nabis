@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.or.ddit.duty.dao.DutyDAO">
+
+	<select id="selectDutyList" resultType="DutyVO" >
+		SELECT DTCODE,
+				DTNM
+		FROM DUTY
+		WHERE DELYN = 'N'
+		ORDER BY LVL NULLS LAST
+	</select>
+	
+	<update id="updateDuty" parameterType="DutyVO">
+		UPDATE DUTY
+		SET
+			DTNM = #{dtnm,jdbcType=VARCHAR}
+			
+		WHERE DTCODE = #{dtcode,jdbcType=VARCHAR}	
+	</update>
+	
+	<insert id="insertDuty" parameterType="DutyVO">
+	INSERT INTO DUTY (         
+		    DTCODE
+			, DTNM
+			, DELYN
+		) VALUES (               
+				'DT0' || DUTY_SEQ.NEXTVAL
+				, #{dtnm,jdbcType=VARCHAR}
+				, 'N'
+			)						 
+	</insert>
+	
+	<delete id="deleteDuty" parameterType="String">
+		UPDATE DUTY
+		SET
+			DELYN = 'Y'
+		WHERE DTCODE = #{dtcode,jdbcType=VARCHAR}
+	</delete>
+	
+	<select id="selectMaxDtcode" resultType="String">
+		SELECT 
+			SUBSTR( MAX(DTCODE), 3 )
+		FROM DUTY
+	</select>
+</mapper>

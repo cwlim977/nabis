@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.or.ddit.pay.dao.PayDedDAO">
+
+<!-- 조회  -->
+	<select id="selectPay" parameterType="string" resultType="PayAlwVO">
+		SELECT
+			  PY_CODE
+			, PY_NM
+			, PY_AMT
+			, PY_YN
+			, PY_TAX
+			, PY_FML
+			, PY_LYN
+			, PY_ABST
+		 FROM PAY
+	    WHERE PY_CODE = #{pyCode,jdbcType=VARCHAR}
+	</select>
+	
+	
+	<select id="selectDed" parameterType="string" resultType="PayDedVO">
+		SELECT    
+			  DD_CODE
+			, DD_NM
+			, DD_AMT
+			, DD_YN
+			, DD_FML
+			, DD_ABST
+			, DD_LYN
+		FROM  DED
+		WHERE DD_CODE = #{ddCode,jdbcType=VARCHAR}
+	</select>
+	
+	<select id="selectPayList" parameterType="string" resultType="PayAlwVO">
+		SELECT
+			  PY_CODE
+			, PY_NM
+			, PY_AMT
+			, PY_TAX
+			, PY_FML
+			, PY_ABST
+		 FROM PAY
+		WHERE PY_YN = 'Y'
+		  AND PY_LYN = #{pyLyn,jdbcType=VARCHAR}
+	</select>
+	
+	<select id="selectDedList" parameterType="string" resultType="PayDedVO">
+		SELECT
+			  DD_CODE
+			, DD_NM
+			, DD_AMT
+			, DD_ABST
+		 FROM DED
+		WHERE DD_YN = 'Y'
+		  AND DD_LYN = #{ddLyn,jdbcType=VARCHAR}
+	</select>
+	
+<!-- 생성 -->
+	<insert id="insertPay" parameterType="PayAlwVO">
+		<selectKey resultType="string" order="BEFORE" keyProperty="pyCode">
+			SELECT 'WP' || LPAD(NVL(TO_NUMBER(SUBSTR(MAX(PY_CODE),3)), 0)+1, 3, '0')
+			FROM   PAY
+		</selectKey>
+		INSERT INTO PAY (
+					  PY_CODE
+					, PY_NM
+					, PY_AMT
+					, PY_YN
+					, PY_LYN
+					, PY_TAX
+					, PY_ABST
+	           ) VALUES (
+					  #{pyCode,jdbcType=VARCHAR}
+					, #{pyNm,jdbcType=VARCHAR}
+					, #{pyAmt,jdbcType=NUMERIC}
+					, 'Y'
+					, 'N'
+					, #{pyTax,jdbcType=VARCHAR}
+					, #{pyAbst,jdbcType=VARCHAR}
+	   		   )
+	</insert>
+
+	<insert id="insertDed" parameterType="PayDedVO">
+		<selectKey resultType="string" order="BEFORE" keyProperty="ddCode">
+			SELECT 'WD' || LPAD(NVL(TO_NUMBER(SUBSTR(MAX(DD_CODE),3)), 0)+1, 3, '0')
+			FROM   DED
+		</selectKey>
+		INSERT INTO DED(
+					  DD_CODE
+					, DD_NM
+					, DD_AMT
+					, DD_ABST
+					, DD_YN
+					, DD_LYN
+					, PARENT_DCD
+			) VALUES (
+					  #{ddCode,jdbcType=VARCHAR}
+					, #{ddNm,jdbcType=VARCHAR}
+					, #{ddAmt,jdbcType=NUMERIC}
+					, #{ddAbst,jdbcType=VARCHAR}
+					, 'Y'
+					, 'N'
+					, 'WD300'
+			)
+	</insert>
+	
+<!-- 수정 -->
+	<update id="updatePay" parameterType="PayAlwVO">
+		UPDATE PAY
+		SET
+			PY_NM = #{pyNm,jdbcType=VARCHAR}
+	      , PY_AMT = #{pyAmt,jdbcType=NUMERIC}
+		  , PY_TAX = #{pyTax,jdbcType=VARCHAR}
+		  , PY_ABST = #{pyAbst,jdbcType=VARCHAR}
+		WHERE PY_CODE = #{pyCode,jdbcType=VARCHAR}
+	</update>
+	
+	<update id="updateDed" parameterType="PayDedVO">
+		UPDATE DED
+		SET
+		   DD_NM = #{ddNm,jdbcType=VARCHAR}
+	 	 , DD_AMT = #{ddAmt,jdbcType=NUMERIC}
+		 , DD_ABST = #{ddAbst,jdbcType=VARCHAR} 
+		WHERE DD_CODE = #{ddCode,jdbcType=VARCHAR}
+	</update>
+	
+<!-- 삭제 -->
+	<update id="deletePay" parameterType="string">
+		UPDATE PAY
+		SET 
+		    PY_YN = 'N'
+		WHERE PY_CODE = #{pyCode,jdbcType=VARCHAR}
+	</update>
+	
+	<update id="deleteDed" parameterType="string">
+		UPDATE DED
+		SET 
+		    DD_YN = 'N'
+		WHERE DD_CODE = #{ddCode,jdbcType=VARCHAR}
+	</update>
+
+</mapper>

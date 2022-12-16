@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.or.ddit.cerf.dao.CerfDAO">
+	
+
+ <resultMap type="EmpVO" id="CerfMap" autoMapping="true">
+	<id property="empNo" column="EMP_NO"/>
+	
+	<collection property="jobList" ofType="OwnJobVO" notNullColumn="OJ_NO" autoMapping="true">
+		<id property="ojNo" column="OJ_NO"/>
+	</collection>
+	
+</resultMap> 
+
+<select id="selectCerfEmpList"  resultMap="CerfMap">
+
+	SELECT DISTINCT
+    E.EMP_NO,
+    E.EMP_NM,
+    E.EMP_IMG,
+    J.JNM,
+    OJ.OJ_NO
+	FROM EMP E LEFT OUTER JOIN ASGMT A ON(E.EMP_NO = A.ASGMT_PERS)
+            LEFT OUTER JOIN OWN_JOB OJ ON(A.ASGMT_PERS = OJ.ASGMT_PERS )
+            LEFT OUTER JOIN JOB J ON(OJ.JCODE = J.JCODE)
+    ORDER BY E.EMP_NM ASC
+
+</select>
+
+<select id="searchCerfList" resultMap="CerfMap" parameterType="string">
+		SELECT DISTINCT
+	    E.EMP_NO,
+	    E.EMP_NM,
+	    E.EMP_IMG,
+	    J.JNM,
+	    OJ.OJ_NO
+		FROM EMP E LEFT OUTER JOIN ASGMT A ON(E.EMP_NO = A.ASGMT_PERS)
+	            LEFT OUTER JOIN OWN_JOB OJ ON(A.ASGMT_PERS = OJ.ASGMT_PERS )
+	            LEFT OUTER JOIN JOB J ON(OJ.JCODE = J.JCODE)
+		 <![CDATA[ 			
+        WHERE INSTR(EMP_NM, #{empNm , jdbcType=VARCHAR} ) > 0
+        ]]>
+	    ORDER BY E.EMP_NM ASC
+</select>
+
+
+<resultMap type="EmpVO" id="EmpMap" autoMapping="true">
+		<id property="empNo" column="EMP_NO"/>
+		
+		<collection property="jobList" ofType="OwnJobVO" notNullColumn="OJ_NO" autoMapping="true">
+			<id property="ojNo" column="OJ_NO"/>
+		</collection>
+		
+		<collection property="deptList" ofType="BlgDeptVO" notNullColumn="BD_NO" autoMapping="true">
+			<id property="bdNo" column="BD_NO"/>
+		</collection>
+		
+		<collection property="idRoles" ofType="string">
+			<result column="ID_ROLE"/>
+		</collection>
+		
+	</resultMap>
+	
+	
+	<!-- 증명서 발급 필요한 정보들 select  -->
+	<select id="selectCerfInfo" parameterType="string" resultMap="EmpMap">
+		WITH MAX_ASGMT AS(
+		          SELECT MAX(ASGMT_NO) AS ASGMT_NO, ASGMT_PERS AS EMP_NO
+		          FROM ASGMT 
+		          WHERE ASGMT_PERS IN (SELECT EMP_NO FROM EMP)
+		  		  <![CDATA[
+		          AND ASGMT_DATE <= SYSDATE
+		          ]]>
+		    	  AND ASGMT_CCST IS NULL
+		          GROUP BY ASGMT_PERS
+		          
+		    ), ASGMT_VIEW AS(
+		    SELECT * 
+		    FROM ASGMT A INNER JOIN MAX_ASGMT C ON (A.ASGMT_NO = C.ASGMT_NO 
+		                                            AND A.ASGMT_PERS = C.EMP_NO)
+		                LEFT OUTER JOIN BLG_DEPT B  ON (C.EMP_NO = B.ASGMT_PERS 
+		                                                AND C.ASGMT_NO = B.ASGMT_NO)
+		                LEFT OUTER JOIN OWN_JOB O   ON (C.EMP_NO = O.ASGMT_PERS 
+		                                                AND C.ASGMT_NO = O.ASGMT_NO)
+		    )
+			SELECT 
+			        E.EMP_NM
+			        , J.JNM
+			        , E.EMP_NO
+			        , TO_CHAR(ENT_DATE, 'YYYY.MM.DD') "ENT_DATE"
+			        , TO_CHAR(OUT_DATE, 'YYYY.MM.DD') "OUT_DATE"
+			        ,CASE 
+			            WHEN TRUNC(MONTHS_BETWEEN( SYSDATE, ENT_DATE)/12, 0) ||'년'
+			                 || TRUNC(MOD(MONTHS_BETWEEN( SYSDATE, ENT_DATE)/12, 1)*12, 0 ) || ' 개월' = '0년0 개월'
+			            THEN ''
+			            WHEN TRUNC(MONTHS_BETWEEN( SYSDATE, ENT_DATE)/12, 0) ||'년' = '0년'
+			            THEN TRUNC(MOD(MONTHS_BETWEEN( SYSDATE, ENT_DATE)/12, 1)*12, 0 ) || ' 개월'
+			            ELSE TRUNC(MONTHS_BETWEEN( SYSDATE, ENT_DATE)/12, 0) ||'년'
+			                || TRUNC(MOD(MONTHS_BETWEEN( SYSDATE, ENT_DATE)/12, 1)*12, 0 ) || ' 개월' 
+			        END AS "TNEURE_PERIOD"
+			        , E.ENT_CASE
+			        ,	CASE 
+		                    WHEN (SELECT COUNT(*)
+		                             FROM EMPT
+		                             WHERE EMP_NO = E.EMP_NO
+		                             AND DEL_YN IS NULL
+		                             AND SYSDATE > OT_DATE) > 0 THEN '퇴직'
+				            WHEN (SELECT COUNT(*)
+		                             FROM EMPT
+		                             WHERE EMP_NO = E.EMP_NO
+		                             AND DEL_YN IS NULL
+		                             AND SYSDATE BETWEEN BK_SDATE AND BK_EDATE) > 0 THEN '휴직'
+		                    ELSE '재직중'
+		                    END AS "EMP_ST"
+			        ,  (
+			                SELECT DEPTFLOW FROM HOR_DEPTFLOW H
+			                WHERE DE.DCODE = H.DCODE
+			           ) AS "DEPT_FLOW"
+			        , DE.DNM		, DU.DTNM		, E.ENG_NM    
+			        , E.EMP_MM		, E.REGNO1		, E.REGNO2
+			        , E.OFC_NO		, E.EMP_ADDR	, E.BS_WKTIME
+			        , A.PTN_CODE	, A.GRD_CODE	, E.EMP_CCST
+			        , P.PTN_NM		, G.GRD_NM		, E.EMP_GEN 
+			        , E.CP_NO		, E.EMP_MAIL 	, A.OJ_NO
+			        , A.BD_NO		, I.EMP_PASS	, I.EMP_CST
+			        , I.ID_ROLE		, A.MAINCK		, E.BANK
+			        , E.ACCT_NO		, E.OWNER		, A.JCODE
+			        , A.DCODE		, A.DTCODE		, DE.DHNO
+			        , E.EMP_IMG     , TO_CHAR(SYSDATE, 'YYYY-MM-DD') "CF_DATE"
+	                , CASE
+	                WHEN SUBSTR(E.REGNO1,1,1) >= 4 THEN '19' || E.REGNO1
+	                ELSE '20'||E.REGNO1 
+	                END AS "EMP_BIR"
+			FROM EMP E LEFT OUTER JOIN ASGMT_VIEW A ON ( E.EMP_NO = A.EMP_NO)
+						LEFT OUTER JOIN GRD G ON ( A.GRD_CODE = G.GRD_CODE)
+						LEFT OUTER JOIN PSTN P ON ( A.PTN_CODE = P.PTN_CODE)
+						LEFT OUTER JOIN DEPT DE ON ( A.DCODE = DE.DCODE)
+						LEFT OUTER JOIN DUTY DU ON ( A.DTCODE = DU.DTCODE)
+						LEFT OUTER JOIN JOB J ON (A.JCODE = J.JCODE)
+						LEFT OUTER JOIN ID I ON (E.EMP_NO = I.EMP_NO)
+			WHERE A.MAINCK = 'Y' AND E.EMP_NO = #{empNo, jdbcType=VARCHAR}
+	</select>
+
+
+	<!-- 증명서 발급 내역 -->
+	<insert id="insertCerf" parameterType="CerfVO"  >
+	INSERT INTO CERF (
+	    CF_NO,
+	    CF_EMP,
+	    CF_NM,
+	    CF_DATE,
+	    CF_RSN	    
+	) VALUES (
+	    CERF_SEQ.NEXTVAL
+	    ,#{cfEmp}
+	    ,#{cfNm}
+	    ,SYSDATE
+	    ,#{cfRsn}
+	)
+	<selectKey keyProperty="cfNo" resultType="string" order="AFTER">
+		SELECT CERF_SEQ.CURRVAL FROM DUAL
+	</selectKey>
+	</insert>
+	
+	
+	
+	<!-- 사원의 증명서 내역 조회  -->
+	<select id="selectCerfList" resultType="CerfVO" parameterType="string">
+		 	SELECT 
+		 		CF_NO,
+			    CF_EMP,
+			    CF_NM,
+			    TO_CHAR(CF_DATE, 'YYYY-MM-DD') "CF_DATE" ,
+			    CF_RSN
+		    FROM CERF
+		    WHERE CF_EMP = #{cfEmp}
+		    ORDER BY CF_NO DESC
+	</select>
+	
+	
+	<!-- 재직증명서, 경력 증명서  발급 내역 select -->
+	<select id="selectDetailCerf"  resultType="CerfVO" parameterType="CerfVO">
+		    SELECT 
+			    CF_NO,
+			    CF_EMP,
+			    CF_NM,
+			    TO_CHAR(CF_DATE, 'YYYY.MM.DD') "CF_DATE" ,
+			    CF_RSN	
+		    FROM CERF
+		    WHERE CF_EMP = #{cfEmp} AND CF_NM = #{cfNm}
+		    ORDER BY CF_DATE 
+	
+	</select>
+
+</mapper>

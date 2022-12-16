@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.or.ddit.arm.dao.ArmDAO">
+	
+	<!-- 개인 알람 목록 조회 -->
+	<select id="selectArmList" resultType="ArmVO" parameterType="string">
+		SELECT
+		    ARM_NO,
+		    ARM_SDR,
+		    ARM_RCVR,
+		    ARM_CONT_ID,
+		    ARM_CONT,
+		    ARM_TIME,
+		    ARM_URL,
+		    ARM_STAT,
+		    EMP_NM,
+		    EMP_IMG
+		FROM
+		    ARM LEFT OUTER JOIN EMP ON(EMP_NO = ARM_SDR)
+		    WHERE ARM_RCVR = #{armRcvr, jdbcType=VARCHAR}
+            ORDER BY ARM_TIME DESC
+	</select>
+	
+	<!-- 알람 추가 -->
+	<insert id="insertArm" parameterType="ArmVO">
+		INSERT INTO ARM (
+		    ARM_NO,
+		    ARM_SDR,
+		    ARM_RCVR,
+		    ARM_CONT_ID,
+		    ARM_CONT,
+		    ARM_TIME,
+		    ARM_URL,
+		    ARM_STAT
+		) VALUES (
+		    ARM_SEQ.NEXTVAL
+			,#{armSdr, jdbcType=VARCHAR}
+			,#{armRcvr, jdbcType=VARCHAR}
+			,#{armContId, jdbcType=VARCHAR}
+			,#{armCont, jdbcType=VARCHAR}
+		    ,SYSDATE
+		    ,#{armUrl, jdbcType=VARCHAR}
+			,#{armStat, jdbcType=VARCHAR}
+		)
+	</insert>
+
+	<!-- 알람삭제 -->
+	<delete id="deleteArm" parameterType="string">
+		DELETE FROM ARM
+		WHERE ARM_NO = #{armNo, jdbcType=VARCHAR}
+	</delete>	
+	
+	<!-- 알람모두삭제 -->
+	<delete id="deleteArmAll" parameterType="string">
+		DELETE FROM ARM
+		WHERE ARM_RCVR = #{armRcvr, jdbcType=VARCHAR}
+	</delete>
+
+	<!-- 알람읽음 -->
+	<update id="updateArm" parameterType="string">
+		UPDATE ARM
+		    SET ARM_STAT = 'Y'
+		WHERE
+		    ARM_NO = #{armNo, jdbcType=VARCHAR}
+	</update>
+	
+	<!-- 알람모두읽음 -->
+	<update id="updateArmAll" parameterType="string">
+	 	UPDATE ARM
+		    SET ARM_STAT = 'Y'
+		WHERE
+		    ARM_RCVR = #{armRcvr, jdbcType=VARCHAR}
+	</update>
+	
+</mapper>

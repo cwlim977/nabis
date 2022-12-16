@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.or.ddit.job.dao.JobDAO">
+
+	<select id="selectJobList" resultType="JobVO" >
+		SELECT JCODE,
+				JNM
+		FROM JOB
+		WHERE DELYN = 'N'
+		ORDER BY JCODE
+	</select>
+	
+	<update id="updateJob" parameterType="JobVO">
+		UPDATE JOB
+		SET
+			JNM = #{jnm,jdbcType=VARCHAR}
+			
+		WHERE JCODE = #{jcode,jdbcType=VARCHAR}	
+	</update>
+	
+	<insert id="insertJob" parameterType="JobVO">
+	INSERT INTO JOB (         
+		    JCODE
+			, JNM
+			, DELYN
+		) VALUES (               
+				'JB' || JOB_SEQ.NEXTVAL
+				, #{jnm,jdbcType=VARCHAR}
+				, 'N'
+			)						 
+	</insert>
+	
+	<delete id="deleteJob" parameterType="String">
+		UPDATE JOB
+		SET
+			DELYN = 'Y'
+		WHERE JCODE = #{dtcode,jdbcType=VARCHAR}
+	</delete>
+	
+	<select id="selectMaxJcode" resultType="String">
+		SELECT 
+			SUBSTR( MAX(JCODE), 3 )
+		FROM JOB
+	</select>
+</mapper>

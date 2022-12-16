@@ -1,0 +1,1608 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.or.ddit.emp.dao.EmpDAO">
+
+	<resultMap type="EmpVO" id="EmpMap" autoMapping="true">
+		<id property="empNo" column="EMP_NO"/>
+		
+		<collection property="jobList" ofType="OwnJobVO" notNullColumn="OJ_NO" autoMapping="true">
+			<id property="ojNo" column="OJ_NO"/>
+		</collection>
+		
+		<collection property="deptList" ofType="BlgDeptVO" notNullColumn="BD_NO" autoMapping="true">
+			<id property="bdNo" column="BD_NO"/>
+		</collection>
+		
+		<collection property="idRoles" ofType="string">
+			<result column="ID_ROLE"/>
+		</collection>
+		
+	</resultMap>
+	
+	<!-- 사원목록 조회 -->
+	<select id="selectEmpList" resultMap="EmpMap">
+	    WITH MAX_ASGMT AS(
+	          SELECT MAX(ASGMT_NO) AS ASGMT_NO, ASGMT_PERS AS EMP_NO
+	          FROM ASGMT 
+	          WHERE ASGMT_PERS IN (SELECT EMP_NO FROM EMP)
+	           <![CDATA[
+	          AND ASGMT_DATE <= SYSDATE
+	          ]]>
+	    	  AND ASGMT_CCST IS NULL
+	          GROUP BY ASGMT_PERS
+	          
+	    ), ASGMT_VIEW AS(
+	    SELECT * 
+	    FROM ASGMT A INNER JOIN MAX_ASGMT C ON (A.ASGMT_NO = C.ASGMT_NO 
+	                                            AND A.ASGMT_PERS = C.EMP_NO)
+	                LEFT OUTER JOIN BLG_DEPT B  ON (C.EMP_NO = B.ASGMT_PERS 
+	                                                AND C.ASGMT_NO = B.ASGMT_NO)
+	                LEFT OUTER JOIN OWN_JOB O   ON (C.EMP_NO = O.ASGMT_PERS 
+	                                                AND C.ASGMT_NO = O.ASGMT_NO)
+	    )
+		SELECT 
+		        E.EMP_NM
+		        , J.JNM
+		        , E.EMP_NO
+		        , TO_CHAR(ENT_DATE, 'YYYY-MM-DD') "ENT_DATE"
+		        , TO_CHAR(OUT_DATE, 'YYYY-MM-DD') "OUT_DATE"
+		        ,CASE 
+		            WHEN TRUNC(MONTHS_BETWEEN( SYSDATE, ENT_DATE)/12, 0) ||'년'
+		                 || TRUNC(MOD(MONTHS_BETWEEN( SYSDATE, ENT_DATE)/12, 1)*12, 0 ) || ' 개월' = '0년0 개월'
+		            THEN ''
+		            WHEN TRUNC(MONTHS_BETWEEN( SYSDATE, ENT_DATE)/12, 0) ||'년' = '0년'
+		            THEN TRUNC(MOD(MONTHS_BETWEEN( SYSDATE, ENT_DATE)/12, 1)*12, 0 ) || ' 개월'
+		            ELSE TRUNC(MONTHS_BETWEEN( SYSDATE, ENT_DATE)/12, 0) ||'년'
+		                || TRUNC(MOD(MONTHS_BETWEEN( SYSDATE, ENT_DATE)/12, 1)*12, 0 ) || ' 개월' 
+		        END AS "TNEURE_PERIOD"
+		        , E.ENT_CASE
+		        ,	CASE 
+	                    WHEN (SELECT COUNT(*)
+	                             FROM EMPT
+	                             WHERE EMP_NO = E.EMP_NO
+	                             AND DEL_YN IS NULL
+	                             AND SYSDATE > OT_DATE) > 0 
+	                    THEN '퇴직'
+			            WHEN (SELECT COUNT(*)
+	                             FROM EMPT
+	                             WHERE EMP_NO = E.EMP_NO
+	                             AND DEL_YN IS NULL
+	                             AND SYSDATE BETWEEN BK_SDATE AND BK_EDATE) > 0 
+	                    THEN '휴직'
+	                    ELSE '재직중'
+	                    END AS "EMP_ST"
+		        ,  (
+		                SELECT DEPTFLOW FROM HOR_DEPTFLOW H
+		                WHERE DE.DCODE = H.DCODE
+		           ) AS "DEPT_FLOW"
+		        , DE.DNM		, DU.DTNM		, E.ENG_NM		
+		        , E.EMP_MM		, E.REGNO1		, E.REGNO2
+		        , E.OFC_NO		, E.EMP_ADDR	, E.BS_WKTIME
+		        , A.PTN_CODE	, A.GRD_CODE	, E.EMP_CCST
+		        , P.PTN_NM		, G.GRD_NM		, E.EMP_GEN 
+		        , E.CP_NO		, E.EMP_MAIL 	, A.OJ_NO
+		        , A.BD_NO		, I.EMP_PASS	, I.EMP_CST
+		        , I.ID_ROLE		, A.MAINCK		, E.BANK
+		        , E.ACCT_NO		, E.OWNER		, A.JCODE
+		        , A.DCODE		, A.DTCODE		, DE.DHNO
+		        , E.EMP_IMG
+		FROM EMP E LEFT OUTER JOIN ASGMT_VIEW A ON ( E.EMP_NO = A.EMP_NO)
+					LEFT OUTER JOIN GRD G ON ( A.GRD_CODE = G.GRD_CODE)
+					LEFT OUTER JOIN PSTN P ON ( A.PTN_CODE = P.PTN_CODE)
+					LEFT OUTER JOIN DEPT DE ON ( A.DCODE = DE.DCODE)
+					LEFT OUTER JOIN DUTY DU ON ( A.DTCODE = DU.DTCODE)
+					LEFT OUTER JOIN JOB J ON (A.JCODE = J.JCODE)
+					LEFT OUTER JOIN ID I ON (E.EMP_NO = I.EMP_NO)
+		ORDER BY EMP_NO, MAINCK DESC
+	</select>	
+	
+	<!-- 사원목록 조회 검색 임시 -->
+	<select id="selectEmpListSearch" resultMap="EmpMap" parameterType="hashMap">
+	    WITH MAX_ASGMT AS(
+	          SELECT MAX(ASGMT_NO) AS ASGMT_NO, ASGMT_PERS AS EMP_NO
+	          FROM ASGMT 
+	          WHERE ASGMT_PERS IN (SELECT EMP_NO FROM EMP)
+	           <![CDATA[
+	          AND ASGMT_DATE <= SYSDATE
+	          ]]>
+	    	  AND ASGMT_CCST IS NULL
+	          GROUP BY ASGMT_PERS
+	          
+	    ), ASGMT_VIEW AS(
+	    SELECT * 
+	    FROM ASGMT A INNER JOIN MAX_ASGMT C ON (A.ASGMT_NO = C.ASGMT_NO 
+	                                            AND A.ASGMT_PERS = C.EMP_NO)
+	                LEFT OUTER JOIN BLG_DEPT B  ON (C.EMP_NO = B.ASGMT_PERS 
+	                                                AND C.ASGMT_NO = B.ASGMT_NO)
+	                LEFT OUTER JOIN OWN_JOB O   ON (C.EMP_NO = O.ASGMT_PERS 
+	                                                AND C.ASGMT_NO = O.ASGMT_NO)
+	    )
+		SELECT 
+		        E.EMP_NM
+		        , J.JNM
+		        , E.EMP_NO
+		        , TO_CHAR(ENT_DATE, 'YYYY-MM-DD') "ENT_DATE"
+		        , TO_CHAR(OUT_DATE, 'YYYY-MM-DD') "OUT_DATE"
+		        ,CASE 
+		            WHEN TRUNC(MONTHS_BETWEEN( SYSDATE, ENT_DATE)/12, 0) ||'년'
+		                 || TRUNC(MOD(MONTHS_BETWEEN( SYSDATE, ENT_DATE)/12, 1)*12, 0 ) || ' 개월' = '0년0 개월'
+		            THEN ''
+		            WHEN TRUNC(MONTHS_BETWEEN( SYSDATE, ENT_DATE)/12, 0) ||'년' = '0년'
+		            THEN TRUNC(MOD(MONTHS_BETWEEN( SYSDATE, ENT_DATE)/12, 1)*12, 0 ) || ' 개월'
+		            ELSE TRUNC(MONTHS_BETWEEN( SYSDATE, ENT_DATE)/12, 0) ||'년'
+		                || TRUNC(MOD(MONTHS_BETWEEN( SYSDATE, ENT_DATE)/12, 1)*12, 0 ) || ' 개월' 
+		        END AS "TNEURE_PERIOD"
+		        , E.ENT_CASE
+		        ,	CASE 
+	                    WHEN (SELECT COUNT(*)
+	                             FROM EMPT
+	                             WHERE EMP_NO = E.EMP_NO
+	                             AND DEL_YN IS NULL
+	                             AND SYSDATE > OT_DATE) > 0 THEN '퇴직'
+			            WHEN (SELECT COUNT(*)
+	                             FROM EMPT
+	                             WHERE EMP_NO = E.EMP_NO
+	                             AND DEL_YN IS NULL
+	                             AND SYSDATE BETWEEN BK_SDATE AND BK_EDATE) > 0 THEN '휴직'
+	                    ELSE '재직중'
+	                    END AS "EMP_ST"
+		        ,  (
+		                SELECT DEPTFLOW FROM HOR_DEPTFLOW H
+		                WHERE DE.DCODE = H.DCODE
+		           ) AS "DEPT_FLOW"
+		        , DE.DNM		, DU.DTNM		, E.ENG_NM		
+		        , E.EMP_MM		, E.REGNO1		, E.REGNO2
+		        , E.OFC_NO		, E.EMP_ADDR	, E.BS_WKTIME
+		        , A.PTN_CODE	, A.GRD_CODE	, E.EMP_CCST
+		        , P.PTN_NM		, G.GRD_NM		, E.EMP_GEN 
+		        , E.CP_NO		, E.EMP_MAIL 	, A.OJ_NO
+		        , A.BD_NO		, I.EMP_PASS	, I.EMP_CST
+		        , I.ID_ROLE		, A.MAINCK		, E.BANK
+		        , E.ACCT_NO		, E.OWNER		, A.JCODE
+		        , A.DCODE		, A.DTCODE		, DE.DHNO
+		        , E.EMP_IMG
+		FROM EMP E LEFT OUTER JOIN ASGMT_VIEW A ON ( E.EMP_NO = A.EMP_NO)
+					LEFT OUTER JOIN GRD G ON ( A.GRD_CODE = G.GRD_CODE)
+					LEFT OUTER JOIN PSTN P ON ( A.PTN_CODE = P.PTN_CODE)
+					LEFT OUTER JOIN DEPT DE ON ( A.DCODE = DE.DCODE)
+					LEFT OUTER JOIN DUTY DU ON ( A.DTCODE = DU.DTCODE)
+					LEFT OUTER JOIN JOB J ON (A.JCODE = J.JCODE)
+					LEFT OUTER JOIN ID I ON (E.EMP_NO = I.EMP_NO)
+		<if test="dcode!=null and !dcode.equals('')">
+		WHERE B.DCODE = #{dcode}
+		</if>
+		ORDER BY EMP_NO, MAINCK DESC
+		
+	</select>
+	
+	<sql id="searchFrag">
+		<trim prefix="WHERE (" suffix=")" >
+			1=1
+			<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchWord)">
+				<choose>
+					<when test="'title' eq simpleCondition.searchType">
+						AND INSTR(E.EMP_NM, #{simpleCondition.searchWord}) > 0
+					</when>
+					<otherwise>
+					AND
+						(INSTR(E.EMP_NM, #{simpleCondition.searchWord}) > 0
+						OR
+						INSTR(E.EMP_NO, #{simpleCondition.searchWord}) > 0)
+					</otherwise>
+				</choose>
+			</if>
+			<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.dcode)">
+				AND (A.DCODE = #{simpleCondition.dcode})
+			</if>
+		</trim>
+	</sql>
+	<!-- 사원목록 조회 페이징 -->
+	<select id="selectEmpListPaging" resultMap="EmpMap" parameterType="PagingVO">
+	    WITH MAX_ASGMT AS(
+	          SELECT MAX(ASGMT_NO) AS ASGMT_NO, ASGMT_PERS AS EMP_NO
+	          FROM ASGMT 
+	          WHERE ASGMT_PERS IN (SELECT EMP_NO FROM EMP)
+	           <![CDATA[
+	          AND ASGMT_DATE <= SYSDATE
+	          ]]>
+	    	  AND ASGMT_CCST IS NULL
+	          GROUP BY ASGMT_PERS
+	          
+	    ), ASGMT_VIEW AS(
+	    SELECT * 
+	    FROM ASGMT A INNER JOIN MAX_ASGMT C ON (A.ASGMT_NO = C.ASGMT_NO 
+	                                            AND A.ASGMT_PERS = C.EMP_NO)
+	                LEFT OUTER JOIN BLG_DEPT B  ON (C.EMP_NO = B.ASGMT_PERS 
+	                                                AND C.ASGMT_NO = B.ASGMT_NO)
+	                LEFT OUTER JOIN OWN_JOB O   ON (C.EMP_NO = O.ASGMT_PERS 
+	                                                AND C.ASGMT_NO = O.ASGMT_NO)
+	    )
+	    SELECT *
+		FROM(
+			SELECT C.* , DENSE_RANK() OVER (ORDER BY C.EMP_NO DESC) AS RNUM
+			FROM(
+				SELECT 
+				        E.EMP_NM
+				        , J.JNM
+				        , E.EMP_NO
+				        , TO_CHAR(ENT_DATE, 'YYYY-MM-DD') "ENT_DATE"
+				        , TO_CHAR(OUT_DATE, 'YYYY-MM-DD') "OUT_DATE"
+				        ,CASE 
+				            WHEN TRUNC(MONTHS_BETWEEN( SYSDATE, ENT_DATE)/12, 0) ||'년'
+				                 || TRUNC(MOD(MONTHS_BETWEEN( SYSDATE, ENT_DATE)/12, 1)*12, 0 ) || ' 개월' = '0년0 개월'
+				            THEN ''
+				            WHEN TRUNC(MONTHS_BETWEEN( SYSDATE, ENT_DATE)/12, 0) ||'년' = '0년'
+				            THEN TRUNC(MOD(MONTHS_BETWEEN( SYSDATE, ENT_DATE)/12, 1)*12, 0 ) || ' 개월'
+				            ELSE TRUNC(MONTHS_BETWEEN( SYSDATE, ENT_DATE)/12, 0) ||'년'
+				                || TRUNC(MOD(MONTHS_BETWEEN( SYSDATE, ENT_DATE)/12, 1)*12, 0 ) || ' 개월' 
+				        END AS "TNEURE_PERIOD"
+				        , E.ENT_CASE
+				        ,	CASE 
+			                    WHEN (SELECT COUNT(*)
+			                             FROM EMPT
+			                             WHERE EMP_NO = E.EMP_NO
+			                             AND DEL_YN IS NULL
+			                             AND SYSDATE > OT_DATE) > 0 
+			                    THEN '퇴직'
+					            WHEN (SELECT COUNT(*)
+			                             FROM EMPT
+			                             WHERE EMP_NO = E.EMP_NO
+			                             AND DEL_YN IS NULL
+			                             AND SYSDATE BETWEEN BK_SDATE AND BK_EDATE) > 0 
+			                    THEN '휴직'
+			                    ELSE '재직중'
+			                    END AS "EMP_ST"
+				        ,  (
+				                SELECT DEPTFLOW FROM HOR_DEPTFLOW H
+				                WHERE DE.DCODE = H.DCODE
+				           ) AS "DEPT_FLOW"
+				        , DE.DNM		, DU.DTNM		, E.ENG_NM		
+				        , E.EMP_MM		, E.REGNO1		, E.REGNO2
+				        , E.OFC_NO		, E.EMP_ADDR	, E.BS_WKTIME
+				        , A.PTN_CODE	, A.GRD_CODE	, E.EMP_CCST
+				        , P.PTN_NM		, G.GRD_NM		, E.EMP_GEN 
+				        , E.CP_NO		, E.EMP_MAIL 	, A.OJ_NO
+				        , A.BD_NO		, I.EMP_PASS	, I.EMP_CST
+				        , I.ID_ROLE		, A.MAINCK		, E.BANK
+				        , E.ACCT_NO		, E.OWNER		, A.JCODE
+				        , A.DCODE		, A.DTCODE		, DE.DHNO
+				        , E.EMP_IMG
+				FROM EMP E LEFT OUTER JOIN ASGMT_VIEW A ON ( E.EMP_NO = A.EMP_NO)
+							LEFT OUTER JOIN GRD G ON ( A.GRD_CODE = G.GRD_CODE)
+							LEFT OUTER JOIN PSTN P ON ( A.PTN_CODE = P.PTN_CODE)
+							LEFT OUTER JOIN DEPT DE ON ( A.DCODE = DE.DCODE)
+							LEFT OUTER JOIN DUTY DU ON ( A.DTCODE = DU.DTCODE)
+							LEFT OUTER JOIN JOB J ON (A.JCODE = J.JCODE)
+							LEFT OUTER JOIN ID I ON (E.EMP_NO = I.EMP_NO)
+				<include refid="searchFrag" />
+				ORDER BY EMP_NO, MAINCK DESC
+			) C
+		) D
+		<![CDATA[
+		WHERE RNUM >= #{startRow} AND RNUM <= #{endRow}
+		]]>
+	</select>
+	<select id="selectTotalRecord" resultType="int" parameterType="PagingVO">
+		WITH MAX_ASGMT AS(
+	          SELECT MAX(ASGMT_NO) AS ASGMT_NO, ASGMT_PERS AS EMP_NO
+	          FROM ASGMT 
+	          WHERE ASGMT_PERS IN (SELECT EMP_NO FROM EMP)
+	           <![CDATA[
+	          AND ASGMT_DATE <= SYSDATE
+	          ]]>
+	    	  AND ASGMT_CCST IS NULL
+	          GROUP BY ASGMT_PERS
+	          
+	    ), ASGMT_VIEW AS(
+	    SELECT * 
+	    FROM ASGMT A INNER JOIN MAX_ASGMT C ON (A.ASGMT_NO = C.ASGMT_NO 
+	                                            AND A.ASGMT_PERS = C.EMP_NO)
+	                LEFT OUTER JOIN BLG_DEPT B  ON (C.EMP_NO = B.ASGMT_PERS 
+	                                                AND C.ASGMT_NO = B.ASGMT_NO)
+	                LEFT OUTER JOIN OWN_JOB O   ON (C.EMP_NO = O.ASGMT_PERS 
+	                                                AND C.ASGMT_NO = O.ASGMT_NO)
+	    )
+		SELECT 
+		        COUNT(DISTINCT E.EMP_NO)
+		FROM EMP E LEFT OUTER JOIN ASGMT_VIEW A ON ( E.EMP_NO = A.EMP_NO)
+					LEFT OUTER JOIN GRD G ON ( A.GRD_CODE = G.GRD_CODE)
+					LEFT OUTER JOIN PSTN P ON ( A.PTN_CODE = P.PTN_CODE)
+					LEFT OUTER JOIN DEPT DE ON ( A.DCODE = DE.DCODE)
+					LEFT OUTER JOIN DUTY DU ON ( A.DTCODE = DU.DTCODE)
+					LEFT OUTER JOIN JOB J ON (A.JCODE = J.JCODE)
+					LEFT OUTER JOIN ID I ON (E.EMP_NO = I.EMP_NO)
+		<include refid="searchFrag" />
+		ORDER BY EMP_NO, MAINCK DESC
+	</select>
+<!-- ##################################### 사원 계약상태조회 ###################################################################################################################### -->
+	<resultMap type="EmpVO" id="EmpCntStatusListMap" autoMapping="true">
+		<id property="empNo" column="EMP_NO"/>
+		
+		<collection property="jobList" ofType="OwnJobVO" notNullColumn="OJ_NO" autoMapping="true">
+			<id property="ojNo" column="OJ_NO"/>
+		</collection>
+		
+		<collection property="deptList" ofType="BlgDeptVO" notNullColumn="BD_NO" autoMapping="true">
+			<id property="bdNo" column="BD_NO"/>
+		</collection>
+		
+		<collection property="cnthxList" ofType="CnthxVO" notNullColumn="CNT_ST" autoMapping="true">
+			<id property="cntSt" column="CNT_ST"/>
+		</collection>
+		
+		<collection property="idRoles" ofType="string">
+			<result column="ID_ROLE"/>
+		</collection>
+		
+	</resultMap>
+	
+	<!-- 사원 계약상태 목록 조회 -->
+	<select id="selectEmpCntStatusList" parameterType="hashmap" resultMap="EmpCntStatusListMap">
+	    WITH MAX_ASGMT AS(
+	          SELECT MAX(ASGMT_NO) AS ASGMT_NO, ASGMT_PERS AS EMP_NO
+	          FROM ASGMT 
+	          WHERE ASGMT_PERS IN (SELECT EMP_NO FROM EMP)
+	           <![CDATA[
+	          AND ASGMT_DATE <= SYSDATE
+	          ]]>
+	    	  AND ASGMT_CCST IS NULL
+	          GROUP BY ASGMT_PERS
+	          
+	    ), ASGMT_VIEW AS(
+	    SELECT * 
+	    FROM ASGMT A INNER JOIN MAX_ASGMT C ON (A.ASGMT_NO = C.ASGMT_NO 
+	                                            AND A.ASGMT_PERS = C.EMP_NO)
+	                LEFT OUTER JOIN BLG_DEPT B  ON (C.EMP_NO = B.ASGMT_PERS 
+	                                                AND C.ASGMT_NO = B.ASGMT_NO)
+	                LEFT OUTER JOIN OWN_JOB O   ON (C.EMP_NO = O.ASGMT_PERS 
+	                                                AND C.ASGMT_NO = O.ASGMT_NO)
+	    )
+		SELECT 
+		        E.EMP_NM
+		        , J.JNM
+		        , E.EMP_NO
+		        , TO_CHAR(ENT_DATE, 'YYYY-MM-DD') "ENT_DATE"
+		        , TO_CHAR(OUT_DATE, 'YYYY-MM-DD') "OUT_DATE"
+		        ,CASE 
+		            WHEN TRUNC(MONTHS_BETWEEN( SYSDATE, ENT_DATE)/12, 0) ||'년'
+		                 || TRUNC(MOD(MONTHS_BETWEEN( SYSDATE, ENT_DATE)/12, 1)*12, 0 ) || ' 개월' = '0년0 개월'
+		            THEN ''
+		            WHEN TRUNC(MONTHS_BETWEEN( SYSDATE, ENT_DATE)/12, 0) ||'년' = '0년'
+		            THEN TRUNC(MOD(MONTHS_BETWEEN( SYSDATE, ENT_DATE)/12, 1)*12, 0 ) || ' 개월'
+		            ELSE TRUNC(MONTHS_BETWEEN( SYSDATE, ENT_DATE)/12, 0) ||'년'
+		                || TRUNC(MOD(MONTHS_BETWEEN( SYSDATE, ENT_DATE)/12, 1)*12, 0 ) || ' 개월' 
+		        END AS "TNEURE_PERIOD"
+		        , E.ENT_CASE
+		        ,	CASE 
+	                    WHEN (SELECT COUNT(*)
+	                             FROM EMPT
+	                             WHERE EMP_NO = E.EMP_NO
+	                             AND DEL_YN IS NULL
+	                             AND SYSDATE > OT_DATE) > 0 THEN '퇴직'
+			            WHEN (SELECT COUNT(*)
+	                             FROM EMPT
+	                             WHERE EMP_NO = E.EMP_NO
+	                             AND DEL_YN IS NULL
+	                             AND SYSDATE BETWEEN BK_SDATE AND BK_EDATE) > 0 THEN '휴직'
+	                    ELSE '재직중'
+	                    END AS "EMP_ST"
+		        ,  (
+		                SELECT DEPTFLOW FROM HOR_DEPTFLOW H
+		                WHERE DE.DCODE = H.DCODE
+		           ) AS "DEPT_FLOW"
+		        , DE.DNM		, DU.DTNM		, E.ENG_NM 
+		        , E.EMP_MM		, E.REGNO1		, E.REGNO2
+		        , E.OFC_NO		, E.EMP_ADDR	, E.BS_WKTIME
+		        , A.PTN_CODE	, A.GRD_CODE	, E.EMP_CCST
+		        , P.PTN_NM		, G.GRD_NM		, E.EMP_GEN 
+		        , E.CP_NO		, E.EMP_MAIL 	, A.OJ_NO
+		        , A.BD_NO		, I.EMP_PASS	, I.EMP_CST
+		        , I.ID_ROLE		, A.MAINCK		, E.BANK
+		        , E.ACCT_NO		, E.OWNER		, A.JCODE
+		        , A.DCODE		, A.DTCODE      , CNT_ST
+		        , E.EMP_IMG
+		FROM EMP E LEFT OUTER JOIN ASGMT_VIEW A ON ( E.EMP_NO = A.EMP_NO)
+					LEFT OUTER JOIN GRD G ON ( A.GRD_CODE = G.GRD_CODE)
+					LEFT OUTER JOIN PSTN P ON ( A.PTN_CODE = P.PTN_CODE)
+					LEFT OUTER JOIN DEPT DE ON ( A.DCODE = DE.DCODE)
+					LEFT OUTER JOIN DUTY DU ON ( A.DTCODE = DU.DTCODE)
+					LEFT OUTER JOIN JOB J ON (A.JCODE = J.JCODE)
+					LEFT OUTER JOIN ID I ON (E.EMP_NO = I.EMP_NO)
+					INNER JOIN CNTHX_VIEW C ON ( E.EMP_NO = C.CNT_CNGR)
+		<if test="paramArr!=null">
+		WHERE CNT_ST IN(
+			<foreach collection="paramArr" item="item" separator=",">
+				#{item}
+			</foreach>
+		)
+		</if>
+		ORDER BY EMP_NO, MAINCK DESC
+	</select>
+	<!-- 수습중 Record 조회 -->
+	<select id="selectEmpCntStatusPrRecord" resultType="int">
+		SELECT COUNT(DISTINCT CNT_CNGR)
+		FROM CNTHX
+		WHERE SYSDATE BETWEEN PR_SDATE AND PR_EDATE
+		AND DELYN IS NULL
+	</select>
+	<!-- 근로계약만료예정 Record 조회 -->
+	<select id="selectEmpCntStatusWkRecord" resultType="int">
+		SELECT COUNT(MAX(CNTHX_NO))
+		FROM CNTHX
+		WHERE BLCT_SDATE IS NOT NULL
+		<![CDATA[ 
+		AND BLCT_SDATE < SYSDATE
+		]]>
+		AND SYSDATE BETWEEN BLCT_EDATE-14 AND BLCT_EDATE
+		AND DELYN IS NULL
+		GROUP BY CNT_CNGR
+	</select>
+	<!-- 임금계약만료예정 Record 조회 -->
+	<select id="selectEmpCntStatusWageRecord" resultType="int">
+		SELECT COUNT(MAX(CNTHX_NO))
+		FROM CNTHX
+		WHERE BWCT_SDATE IS NOT NULL
+		<![CDATA[ 
+		AND BWCT_SDATE < SYSDATE
+		]]>
+		AND (SYSDATE BETWEEN BWCT_EDATE-14 AND BWCT_EDATE)
+		AND DELYN IS NULL
+		GROUP BY CNT_CNGR
+	</select>
+<!-- ################################################################################################################################################################################-->
+	
+	<!-- 사원개인조회 -->
+	<select id="selectEmp" parameterType="string" resultMap="EmpMap">
+	    WITH MAX_ASGMT AS(
+	          SELECT MAX(ASGMT_NO) AS ASGMT_NO, ASGMT_PERS AS EMP_NO
+	          FROM ASGMT 
+	          WHERE ASGMT_PERS IN (SELECT EMP_NO FROM EMP)
+	           <![CDATA[
+	          AND ASGMT_DATE <= SYSDATE
+	          ]]>
+	    	  AND ASGMT_CCST IS NULL
+	          GROUP BY ASGMT_PERS
+	          
+	    ), ASGMT_VIEW AS(
+	    SELECT * 
+	    FROM ASGMT A INNER JOIN MAX_ASGMT C ON (A.ASGMT_NO = C.ASGMT_NO 
+	                                            AND A.ASGMT_PERS = C.EMP_NO)
+	                LEFT OUTER JOIN BLG_DEPT B  ON (C.EMP_NO = B.ASGMT_PERS 
+	                                                AND C.ASGMT_NO = B.ASGMT_NO)
+	                LEFT OUTER JOIN OWN_JOB O   ON (C.EMP_NO = O.ASGMT_PERS 
+	                                                AND C.ASGMT_NO = O.ASGMT_NO)
+	    )
+		SELECT 
+		        E.EMP_NM
+		        , J.JNM
+		        , E.EMP_NO
+		        , TO_CHAR(ENT_DATE, 'YYYY-MM-DD') "ENT_DATE"
+		        , TO_CHAR(OUT_DATE, 'YYYY-MM-DD') "OUT_DATE"
+		        ,CASE 
+		            WHEN TRUNC(MONTHS_BETWEEN( SYSDATE, ENT_DATE)/12, 0) ||'년'
+		                 || TRUNC(MOD(MONTHS_BETWEEN( SYSDATE, ENT_DATE)/12, 1)*12, 0 ) || ' 개월' = '0년0 개월'
+		            THEN ''
+		            WHEN TRUNC(MONTHS_BETWEEN( SYSDATE, ENT_DATE)/12, 0) ||'년' = '0년'
+		            THEN TRUNC(MOD(MONTHS_BETWEEN( SYSDATE, ENT_DATE)/12, 1)*12, 0 ) || ' 개월'
+		            ELSE TRUNC(MONTHS_BETWEEN( SYSDATE, ENT_DATE)/12, 0) ||'년'
+		                || TRUNC(MOD(MONTHS_BETWEEN( SYSDATE, ENT_DATE)/12, 1)*12, 0 ) || ' 개월' 
+		        END AS "TNEURE_PERIOD"
+		        , E.ENT_CASE
+		        ,	CASE 
+	                    WHEN (SELECT COUNT(*)
+	                             FROM EMPT
+	                             WHERE EMP_NO = E.EMP_NO
+	                             AND DEL_YN IS NULL
+	                             AND SYSDATE > OT_DATE) > 0 THEN '퇴직'
+			            WHEN (SELECT COUNT(*)
+	                             FROM EMPT
+	                             WHERE EMP_NO = E.EMP_NO
+	                             AND DEL_YN IS NULL
+	                             AND SYSDATE BETWEEN BK_SDATE AND BK_EDATE) > 0 THEN '휴직'
+	                    ELSE '재직중'
+	                    END AS "EMP_ST"
+		        ,  (
+		                SELECT DEPTFLOW FROM HOR_DEPTFLOW H
+		                WHERE DE.DCODE = H.DCODE
+		           ) AS "DEPT_FLOW"
+		        , DE.DNM		, DU.DTNM		, E.ENG_NM    
+		        , E.EMP_MM		, E.REGNO1		, E.REGNO2
+		        , E.OFC_NO		, E.EMP_ADDR	, E.BS_WKTIME
+		        , A.PTN_CODE	, A.GRD_CODE	, E.EMP_CCST
+		        , P.PTN_NM		, G.GRD_NM		, E.EMP_GEN 
+		        , E.CP_NO		, E.EMP_MAIL 	, A.OJ_NO
+		        , A.BD_NO		, I.EMP_PASS	, I.EMP_CST
+		        , I.ID_ROLE		, A.MAINCK		, E.BANK
+		        , E.ACCT_NO		, E.OWNER		, A.JCODE
+		        , A.DCODE		, A.DTCODE		, DE.DHNO
+		        , E.EMP_IMG
+		FROM EMP E LEFT OUTER JOIN ASGMT_VIEW A ON ( E.EMP_NO = A.EMP_NO)
+					LEFT OUTER JOIN GRD G ON ( A.GRD_CODE = G.GRD_CODE)
+					LEFT OUTER JOIN PSTN P ON ( A.PTN_CODE = P.PTN_CODE)
+					LEFT OUTER JOIN DEPT DE ON ( A.DCODE = DE.DCODE)
+					LEFT OUTER JOIN DUTY DU ON ( A.DTCODE = DU.DTCODE)
+					LEFT OUTER JOIN JOB J ON (A.JCODE = J.JCODE)
+					LEFT OUTER JOIN ID I ON (E.EMP_NO = I.EMP_NO)
+		WHERE E.EMP_NO = #{empNo} 
+		ORDER BY EMP_NO, MAINCK DESC
+	</select>
+	
+	<!-- 사원 생성 -->
+	<insert id="insertEmp" parameterType="EmpVO">
+		INSERT INTO EMP (
+		    EMP_NO,
+		    EMP_NM,
+		    ENT_DATE,
+		    ENT_CASE,
+		    ENG_NM,
+		    EMP_GEN,
+		    REGNO1,
+		    REGNO2,
+		    CP_NO,
+		    OFC_NO,
+		    EMP_ADDR,
+		    BS_WKTIME,
+		    EMP_MAIL
+		) VALUES (
+			#{empNo, jdbcType=VARCHAR}
+			, #{empNm, jdbcType=VARCHAR}
+			, #{entDate, jdbcType=DATE}
+			, #{entCase, jdbcType=VARCHAR}
+			, #{engNm, jdbcType=VARCHAR}
+			, #{empGen, jdbcType=VARCHAR}
+			, #{regno1, jdbcType=INTEGER}
+			, #{regno2, jdbcType=INTEGER}
+			, #{cpNo, jdbcType=VARCHAR}
+			, #{ofcNo, jdbcType=VARCHAR}
+			, #{empAddr, jdbcType=VARCHAR}
+			, #{bsWktime, jdbcType=VARCHAR}
+			, #{empMail, jdbcType=VARCHAR}
+		)
+	</insert>
+	<!-- 사원계정 생성 -->
+	<insert id="insertEmpId" parameterType="EmpVO">
+		INSERT INTO ID (
+		    EMP_NO,
+		    EMP_PASS,
+		    ID_ROLE
+		) VALUES (
+			#{empNo, jdbcType=VARCHAR}
+			, #{empPass, jdbcType=VARCHAR}
+			, 'ROLE_USER'
+		)
+	</insert>
+	
+	<update id="resetIdRoles" parameterType="string">
+		UPDATE ID
+		    SET 
+		        ID_ROLE = 'ROLE_USER'
+		WHERE
+		    EMP_NO = #{empNo, jdbcType=VARCHAR}
+		    AND   ID_ROLE NOT LIKE '%ROLE_ADMIN%'
+	</update>
+	<update id="updateIdRoles" parameterType="string">
+		UPDATE ID
+		    SET
+		        ID_ROLE = 'ROLE_USER,ROLE_MANAGER'
+		WHERE
+		    EMP_NO = #{empNo, jdbcType=VARCHAR}
+		    AND   ID_ROLE NOT LIKE '%ROLE_ADMIN%'
+	</update>
+	
+<!-- ############################################################################################################################################ -->
+	<!-- 인사발령 등록 -->
+	<insert id="insertAsgmt" parameterType="AsgmtVO">
+		INSERT INTO ASGMT (
+		    ASGMT_NO
+		    , ASGMT_PERS
+		    , ASGMT_CLF
+		    , ASGMT_RSN
+		    , ASGMT_MM
+		    , ASGMT_DATE
+		    , WRITER
+		    , FWR_DATE
+		    , PTN_CODE
+		    , GRD_CODE
+		) VALUES (
+			ASGMT_SEQ.NEXTVAL
+			, #{asgmtPers, jdbcType=VARCHAR}
+			, #{asgmtClf, jdbcType=VARCHAR}
+			, #{asgmtRsn, jdbcType=VARCHAR}
+			, #{asgmtMm, jdbcType=VARCHAR}
+			, #{asgmtDate, jdbcType=DATE}
+			, #{writer, jdbcType=VARCHAR}
+			, SYSDATE
+			, #{ptnCode, jdbcType=VARCHAR}
+			, #{grdCode, jdbcType=VARCHAR}
+		)
+		<selectKey keyProperty="asgmtNo" resultType="int" order="AFTER">
+	    	SELECT ASGMT_SEQ.CURRVAL FROM DUAL
+	 	</selectKey>
+	</insert>
+	
+	<!-- 인사발령 다중등록 -->
+	<insert id="insertAsgmts" parameterType="java.util.Map">
+		INSERT ALL
+		<foreach collection="asgmtList" item="asgmt">
+			INTO ASGMT 
+				(
+				    ASGMT_NO
+				    , ASGMT_PERS
+				    , ASGMT_CLF
+				    , ASGMT_RSN
+				    , ASGMT_MM
+				    , ASGMT_DATE
+				    , WRITER
+				    , FWR_DATE
+				    , PTN_CODE
+				    , GRD_CODE
+				) VALUES (
+					ASGMT_SEQ.NEXTVAL
+					, #{asgmt.asgmtPers, jdbcType=VARCHAR}
+					, #{asgmt.asgmtClf, jdbcType=VARCHAR}
+					, #{asgmt.asgmtRsn, jdbcType=VARCHAR}
+					, #{asgmt.asgmtMm, jdbcType=VARCHAR}
+					, #{asgmt.asgmtDate, jdbcType=DATE}
+					, #{writer, jdbcType=VARCHAR}
+					, SYSDATE
+					, #{asgmt.ptnCode, jdbcType=VARCHAR}
+					, #{asgmt.grdCode, jdbcType=VARCHAR}
+				)
+		</foreach>
+		SELECT * FROM DUAL
+		<selectKey keyProperty="id" resultType="String" order="AFTER">
+	    	SELECT ASGMT_SEQ.CURRVAL FROM DUAL
+	 	</selectKey>
+	</insert>
+	
+	<resultMap type="AsgmtVO" id="PersonalAsgmtListMap" autoMapping="true">
+		<id property="asgmtNo" column="ASGMT_NO"/>
+		<id property="asgmtPers" column="ASGMT_PERS"/>
+		
+		<collection property="jobList" ofType="OwnJobVO" notNullColumn="OJ_NO" autoMapping="true">
+			<id property="ojNo" column="OJ_NO"/>
+		</collection>
+		
+		<collection property="deptList" ofType="BlgDeptVO" notNullColumn="BD_NO" autoMapping="true">
+			<id property="bdNo" column="BD_NO"/>
+		</collection>
+	</resultMap>
+	
+	<!-- 인사발령 개인목록 조회  -->
+	<select id="selectAsgmtList" parameterType="string" resultMap="PersonalAsgmtListMap">
+	      SELECT 
+                A.ASGMT_NO			, A.ASGMT_PERS			, A.ASGMT_CLF
+               	, A.ASGMT_MM		, TO_CHAR(A.ASGMT_DATE, 'YYYY-MM-DD') "ASGMT_DATE"
+                , A.WRITER			, A.FWR_DATE			, A.LWR_DATE
+                , A.PTN_CODE		, A.GRD_CODE			, A.ASGMT_CCST
+              	, P.PTN_NM 			, G.GRD_NM 				, O.OJ_NO
+              	, O.JCODE			, B.BD_NO				, B.DCODE
+              	, B.DTCODE			, E.EMP_NM as "WRITER_NM"
+              	, CASE 				
+		            WHEN ASGMT_DATE > SYSDATE
+		            THEN '예정'
+		            ELSE '완료' 
+                END AS "ASGMT_STAT"
+      			, DE.DNM			, DU.DTNM				, J.JNM
+      	FROM ASGMT A LEFT OUTER JOIN GRD G ON ( A.GRD_CODE = G.GRD_CODE)
+                 		LEFT OUTER JOIN PSTN P ON ( A.PTN_CODE = P.PTN_CODE)
+                  		LEFT OUTER JOIN BLG_DEPT B ON ( A.ASGMT_NO = B.ASGMT_NO 
+                                                    AND A.ASGMT_PERS = B.ASGMT_PERS)
+                  		LEFT OUTER JOIN OWN_JOB O ON ( A.ASGMT_NO = O.ASGMT_NO
+                                                    AND A.ASGMT_PERS = O.ASGMT_PERS)
+                    	LEFT OUTER JOIN DEPT DE ON ( B.DCODE = DE.DCODE)
+                		LEFT OUTER JOIN DUTY DU ON ( B.DTCODE = DU.DTCODE)
+                  		LEFT OUTER JOIN JOB J ON (O.JCODE = J.JCODE)
+                  		LEFT OUTER JOIN EMP E ON (A.WRITER = E.EMP_NO)
+        WHERE A.ASGMT_PERS =  #{empNo, jdbcType=VARCHAR} 
+        AND ASGMT_CCST IS NULL
+        ORDER BY ASGMT_DATE DESC, FWR_DATE DESC
+	</select>
+	
+	<!-- 전체 인사발령 내역조회 -->
+	<select id="selectAllAsgmtList"  resultType="AsgmtVO">
+		SELECT
+			DISTINCT ASGMT_NO , ASGMT_CLF
+			, ASGMT_MM , TO_CHAR(ASGMT_DATE, 'YYYY-MM-DD') "ASGMT_DATE"
+			, WRITER , FWR_DATE , LWR_DATE
+			, E.EMP_NM as "WRITER_NM"
+			, CASE
+				WHEN (SELECT COUNT(*)
+						FROM ASGMT
+						WHERE ASGMT_NO = A.ASGMT_NO) =
+						(SELECT COUNT(*)
+						FROM ASGMT
+						WHERE ASGMT_NO = A.ASGMT_NO
+						AND ASGMT_CCST IS NOT NULL)
+				THEN '취소'
+				WHEN ASGMT_DATE > SYSDATE
+				THEN '예정'
+				ELSE '완료'
+			END AS "ASGMT_STAT"
+			,(SELECT
+				COUNT(*)
+			FROM ASGMT
+			WHERE ASGMT_NO = A.ASGMT_NO) AS "ASGMT_CNT"
+			
+			FROM ASGMT A LEFT OUTER JOIN EMP E ON (A.WRITER = E.EMP_NO)
+			ORDER BY ASGMT_DATE DESC, FWR_DATE DESC
+	</select>
+	
+	<!-- 인사발령취소 -->
+	<update id="deleteAsgmt" parameterType="AsgmtVO">
+		UPDATE ASGMT
+		SET
+		    ASGMT_CCST = 'Y'
+		WHERE   
+		    ASGMT_NO = #{asgmtNo, jdbcType=NUMERIC}
+		    AND   ASGMT_PERS = #{asgmtPers, jdbcType=VARCHAR}
+		    AND   ASGMT_CCST IS NULL
+	</update>
+	
+	
+	
+	
+	<resultMap type="EmpVO" id="EmpAsgmtDetailMap" autoMapping="true">
+		<id property="empNo" column="EMP_NO"/>
+		
+		<collection property="asgmtList" ofType="AsgmtVO" notNullColumn="ASGMT_NO" autoMapping="true">
+			<id property="asgmtNo" column="ASGMT_NO"/>
+		</collection>
+		
+		<collection property="jobList" ofType="OwnJobVO" notNullColumn="OJ_NO" autoMapping="true">
+			<id property="ojNo" column="OJ_NO"/>
+		</collection>
+		
+		<collection property="deptList" ofType="BlgDeptVO" notNullColumn="BD_NO" autoMapping="true">
+			<id property="bdNo" column="BD_NO"/>
+		</collection>
+	</resultMap>
+	<!-- 인사발령 상세조회 발령전 발령후-->
+	<select id="selectAsgmtDetail" resultMap="EmpAsgmtDetailMap" parameterType="string">
+	     WITH MAX_ASGMT AS(
+	                SELECT ASGMT_PERS AS EMP_NO
+	                    , (
+	                        SELECT MAX(ASGMT_NO)
+	                        FROM ASGMT
+	                   		<![CDATA[
+	                        WHERE ASGMT_NO < A.ASGMT_NO
+	                        ]]>
+	                        AND ASGMT_PERS = A.ASGMT_PERS
+	                        AND ASGMT_CCST IS NULL
+	                    ) AS ASGMT_NO
+	                FROM ASGMT A
+	
+	                WHERE ASGMT_NO = #{asgmtNo, jdbcType=NUMERIC}
+	                
+		    ), ASGMT_VIEW AS(
+		    SELECT C.ASGMT_NO, A.ASGMT_PERS, ASGMT_CLF, ASGMT_DATE
+            , WRITER, FWR_DATE, LWR_DATE, PTN_CODE, GRD_CODE, ASGMT_CCST, EMP_NO, BD_NO
+            , DCODE, DTCODE, MAINCK, OJ_NO  , JCODE 
+		    FROM ASGMT A INNER JOIN MAX_ASGMT C ON (A.ASGMT_NO = C.ASGMT_NO 
+		                                            AND A.ASGMT_PERS = C.EMP_NO)
+		                LEFT OUTER JOIN BLG_DEPT B ON (C.EMP_NO = B.ASGMT_PERS 
+		                                                AND C.ASGMT_NO = B.ASGMT_NO)
+		                LEFT OUTER JOIN OWN_JOB O ON (C.EMP_NO = O.ASGMT_PERS 
+		                                                AND C.ASGMT_NO = O.ASGMT_NO)
+		    ),MAX_ASGMTT AS(
+	                SELECT ASGMT_PERS AS EMP_NO
+	                    , ASGMT_NO
+	                FROM ASGMT A
+	
+	                WHERE ASGMT_NO = #{asgmtNo, jdbcType=NUMERIC}
+	                
+		    ), ASGMT_VIEWW AS(
+		    SELECT C.ASGMT_NO, A.ASGMT_PERS, ASGMT_CLF, ASGMT_DATE
+            , WRITER, FWR_DATE, LWR_DATE, PTN_CODE, GRD_CODE, ASGMT_CCST, EMP_NO, BD_NO
+            , DCODE, DTCODE, MAINCK, OJ_NO  , JCODE 
+		    FROM ASGMT A INNER JOIN MAX_ASGMTT C ON (A.ASGMT_NO = C.ASGMT_NO 
+		                                            AND A.ASGMT_PERS = C.EMP_NO)
+		                LEFT OUTER JOIN BLG_DEPT B  ON (C.EMP_NO = B.ASGMT_PERS 
+		                                                AND C.ASGMT_NO = B.ASGMT_NO)
+		                LEFT OUTER JOIN OWN_JOB O   ON (C.EMP_NO = O.ASGMT_PERS 
+		                                                AND C.ASGMT_NO = O.ASGMT_NO)
+		    )
+			SELECT 
+			        E.EMP_NM
+	                , E.EMP_NO
+			        , J.JNM
+			        , DE.DNM		, DU.DTNM		
+			        , A.PTN_CODE	, A.GRD_CODE	
+			        , P.PTN_NM		, G.GRD_NM		
+	             	, A.OJ_NO
+			        , A.BD_NO		, A.MAINCK		, A.JCODE
+			        , A.DCODE		, A.DTCODE		, A.ASGMT_NO
+	                , 'N' AS "BEFORE"
+	                , CASE WHEN (SELECT COUNT(*) 
+	                                FROM ASGMT_VIEWW
+	                                WHERE ASGMT_PERS = E.EMP_NO
+	                                AND ASGMT_CCST IS NOT NULL) > 0 
+	                THEN '취소' 
+	                END AS "ASGMT_STAT"
+			FROM EMP E RIGHT OUTER JOIN ASGMT_VIEWW A ON ( E.EMP_NO = A.EMP_NO)
+						LEFT OUTER JOIN GRD G ON ( A.GRD_CODE = G.GRD_CODE)
+						LEFT OUTER JOIN PSTN P ON ( A.PTN_CODE = P.PTN_CODE)
+						LEFT OUTER JOIN DEPT DE ON ( A.DCODE = DE.DCODE)
+						LEFT OUTER JOIN DUTY DU ON ( A.DTCODE = DU.DTCODE)
+						LEFT OUTER JOIN JOB J ON (A.JCODE = J.JCODE)
+	        UNION ALL
+	        
+	        SELECT 
+			        E.EMP_NM
+	                , E.EMP_NO
+			        , J.JNM
+			        , DE.DNM		, DU.DTNM		
+			        , A.PTN_CODE	, A.GRD_CODE	
+			        , P.PTN_NM		, G.GRD_NM		
+	             	, A.OJ_NO
+			        , A.BD_NO		, A.MAINCK		, A.JCODE
+			        , A.DCODE		, A.DTCODE		, A.ASGMT_NO
+	                , 'Y' AS "BEFORE"
+	                , '' AS "ASGMT_STAT"
+			FROM EMP E RIGHT OUTER JOIN ASGMT_VIEW A ON ( E.EMP_NO = A.EMP_NO)
+						LEFT OUTER JOIN GRD G ON ( A.GRD_CODE = G.GRD_CODE)
+						LEFT OUTER JOIN PSTN P ON ( A.PTN_CODE = P.PTN_CODE)
+						LEFT OUTER JOIN DEPT DE ON ( A.DCODE = DE.DCODE)
+						LEFT OUTER JOIN DUTY DU ON ( A.DTCODE = DU.DTCODE)
+						LEFT OUTER JOIN JOB J ON (A.JCODE = J.JCODE)
+			ORDER BY EMP_NO, MAINCK DESC
+	</select>
+<!-- ############################################################################################################################################ -->
+	
+	<!-- 혠 / 마이페이지 경력 정보 select   -->
+	<select id="selectCareer" parameterType="string" resultType="CareerVO">
+		SELECT 
+		CA_NO
+       , EMP_NO
+       , CA_NM
+       , CA_CLF
+       , CA_CNTCASE
+       , TO_CHAR(CA_ETDATE, 'YYYY-MM-DD') "CA_ETDATE"
+       , TO_CHAR(CA_EDATE, 'YYYY-MM-DD') "CA_EDATE"
+       , CA_DEPT
+       , CA_JOB
+       , CA_DUTY
+       , CA_GRD
+       , CASE 
+                WHEN TRUNC(MONTHS_BETWEEN( CA_EDATE, CA_ETDATE)/12, 0) ||'년'
+                     || TRUNC(MOD(MONTHS_BETWEEN( CA_EDATE, CA_ETDATE)/12, 1)*12, 0 ) || ' 개월' = '0년0 개월'
+                THEN ''
+                WHEN TRUNC(MONTHS_BETWEEN( CA_EDATE, CA_ETDATE)/12, 0) ||'년' = '0년'
+                THEN TRUNC(MOD(MONTHS_BETWEEN( CA_EDATE, CA_ETDATE)/12, 1)*12, 0 ) || ' 개월'
+                ELSE TRUNC(MONTHS_BETWEEN( CA_EDATE, CA_ETDATE)/12, 0) ||'년'
+                    || TRUNC(MOD(MONTHS_BETWEEN( CA_EDATE, CA_ETDATE)/12, 1)*12, 0 ) || ' 개월' 
+            END AS "CA_PERIOD"
+		FROM CAREER
+		WHERE EMP_NO = #{empNo}
+		ORDER BY CA_ETDATE DESC, CA_EDATE DESC
+	</select>
+
+
+	<!-- 마이페이지 학력 정보 select  -->
+	<select id="selectAcca" parameterType="string" resultType="AccaVO">
+		SELECT 
+		      ACCA_NO
+		    , EMP_NO
+		    , AC_CLF
+		    , AC_NM
+		    , TO_CHAR(AC_ETDATE, 'YYYY-MM-DD') "AC_ETDATE"
+		    , TO_CHAR(AC_ETDATE, 'YYYY-MM-DD') "AC_EDATE"
+		    , GRAD_CLF
+		    , MAJ
+		FROM  ACCA
+		WHERE EMP_NO = #{empNo}
+		ORDER BY AC_ETDATE DESC, AC_EDATE DESC
+	
+	</select>
+	
+<!--====================================================인사노트쿼리 시작=========================================================-->
+	<!-- 인사노트조회 -->
+	<select id="selectHrnote" parameterType="string" resultType="HrnoteVO">
+		SELECT  H.* ,
+        		EMP_NM
+		FROM HRNOTE H INNER JOIN EMP E
+		ON H.WRITER = E.EMP_NO
+		WHERE HR_EMPNO = #{empNo}
+		AND ((NOT NOTE_DELYN IN 'Y') OR (NOTE_DELYN IS NULL))
+		ORDER BY WRI_DATE DESC
+	</select>
+	
+	<!-- 인사노트작성 -->
+	<insert id="insertHrnote" parameterType="HrnoteVO">
+		INSERT INTO HRNOTE
+		VALUES(
+		    HRNOTE_SEQ.NEXTVAL,
+		    #{hrEmpno, jdbcType=VARCHAR},
+		    #{noteCont, jdbcType=VARCHAR},
+		    SYSDATE,
+		    #{writer, jdbcType=VARCHAR},
+		    'N'
+		)
+	</insert>
+	
+	<!-- 인사노트삭제 -->
+	<update id="deleteHrnote" parameterType="String">
+	    UPDATE HRNOTE
+	    SET NOTE_DELYN = 'Y'
+	    WHERE NOTE_NO = #{noteNo, jdbcType=VARCHAR}
+	</update>
+	
+	<!-- 인사노트수정 -->
+	<update id="updateHrnote" parameterType="HrnoteVO">
+	    UPDATE HRNOTE
+	    SET NOTE_CONT = #{noteCont, jdbcType=VARCHAR}
+	    WHERE NOTE_NO = #{noteNo, jdbcType=VARCHAR}
+		
+	</update>
+<!--====================================================인사노트쿼리 종료=========================================================-->
+
+<!--====================================================계약정보쿼리 시작=========================================================-->
+	<!-- 최근의임금계약목록조회 -->
+	<select id="selectRecentWageList" parameterType="String" resultType="CnthxVO">
+		SELECT *
+		FROM(
+		    SELECT  CNTHX_NO,
+		            CNT_CNGR,
+		            CNT_WRITER,
+		            TO_CHAR(BWCT_SDATE,'YYYY-MM-DD') AS BWCT_SDATE,
+		            TO_CHAR(BWCT_EDATE,'YYYY-MM-DD') AS BWCT_EDATE,
+		            BCNT_AMT,
+		            BFEX,
+		            BINC_CLF,
+		            CNG_MM,
+		            TO_CHAR(CNG_DATE,'YYYY-MM-DD') AS CNG_DATE
+		    FROM CNTHX
+		    WHERE CNT_CNGR =#{empNo, jdbcType=VARCHAR}
+		    AND DELYN IS NULL
+		    AND BWCT_SDATE IS NOT NULL
+		     <![CDATA[ 
+		    AND BWCT_SDATE <= SYSDATE
+            AND BWCT_EDATE >= SYSDATE
+			]]>
+		    ORDER BY CNTHX_NO DESC
+		    )
+		WHERE ROWNUM =1
+	</select>
+	
+	<!-- 최근의근로계약목록조회 -->
+	<select id="selectRecentWkList" parameterType="String" resultType="CnthxVO">
+		SELECT *
+		FROM(
+		    SELECT  CNTHX_NO,
+		            CNT_CNGR,
+		            CNT_WRITER,
+		            TO_CHAR(BLCT_SDATE,'YYYY-MM-DD') AS BLCT_SDATE,
+		            TO_CHAR(BLCT_EDATE,'YYYY-MM-DD') AS BLCT_EDATE,
+		            BL_CASE,
+		            TO_CHAR(CNG_DATE,'YYYY-MM-DD') AS CNG_DATE,
+		            CNG_MM,
+		            TO_CHAR(PR_SDATE,'YYYY-MM-DD') AS PR_SDATE,
+		            TO_CHAR(PR_EDATE,'YYYY-MM-DD') AS PR_EDATE
+		    FROM CNTHX
+		    WHERE CNT_CNGR =#{empNo, jdbcType=VARCHAR}
+		    AND DELYN IS NULL
+		    AND BLCT_SDATE IS NOT NULL
+		     <![CDATA[ 
+		    AND BLCT_SDATE <= SYSDATE
+            AND BLCT_EDATE >= SYSDATE
+			]]>
+            
+		    ORDER BY CNTHX_NO DESC
+		    )
+		WHERE ROWNUM =1
+	</select>
+	
+	<!-- 임금계약등록 -->
+	<insert id="insertWageCrt" parameterType="CnthxVO">
+		INSERT INTO CNTHX(
+		        CNTHX_NO,        CNT_CNGR,        CNT_WRITER,
+		        BWCT_SDATE,      BWCT_EDATE,      BCNT_AMT,
+                BFEX,            BINC_CLF,        CNG_DATE,
+		        CNG_MM
+		)
+		VALUES(
+		        CNTHX_SEQ.NEXTVAL, 
+		        #{cntCngr, jdbcType=VARCHAR}, 
+		        #{cntWriter, jdbcType=VARCHAR},
+		        #{bwctSdate, jdbcType=DATE}, 
+		        #{bwctEdate, jdbcType=DATE}, 
+                #{bcntAmt, jdbcType=VARCHAR},
+                #{bfex, jdbcType=VARCHAR},
+                #{bincClf, jdbcType=VARCHAR},
+		        SYSDATE, 
+		        #{cngMm, jdbcType=VARCHAR}
+		)
+	</insert>
+
+	<!-- 근로계약등록 -->
+	<insert id="insertLaborCrt" parameterType="CnthxVO">
+		INSERT INTO CNTHX(
+		        CNTHX_NO,        CNT_CNGR,        CNT_WRITER,
+		        BLCT_SDATE,        BLCT_EDATE,        BL_CASE,
+		        PR_SDATE,        PR_EDATE,        CNG_DATE,
+		        CNG_MM
+		)
+		VALUES(
+		        CNTHX_SEQ.NEXTVAL, 
+		        #{cntCngr, jdbcType=VARCHAR}, 
+		        #{cntWriter, jdbcType=VARCHAR},
+		        #{blctSdate, jdbcType=DATE}, 
+		        #{blctEdate, jdbcType=DATE}, 
+		        #{blCase, jdbcType=VARCHAR},
+		        #{prSdate, jdbcType=DATE}, 
+		        #{prEdate, jdbcType=DATE}, 
+		        SYSDATE, 
+		        #{cngMm, jdbcType=VARCHAR}
+		)
+	
+	</insert>
+	
+	<!-- 임금계약수정 -->
+	<update id="updateRctWgList" parameterType="CnthxVO">
+		UPDATE CNTHX
+		SET CNT_EDITOR = #{cntEditor, jdbcType=VARCHAR},
+		    EDIT_DATE = SYSDATE,   
+		    BWCT_SDATE = #{bwctSdate, jdbcType=DATE},
+		    BWCT_EDATE = #{bwctEdate, jdbcType=DATE},        
+		    BCNT_AMT = #{bcntAmt, jdbcType=VARCHAR},     
+		    BFEX = #{bfex, jdbcType=VARCHAR},
+		    BINC_CLF = #{bincClf, jdbcType=VARCHAR},          
+		    CNG_MM = #{cngMm, jdbcType=VARCHAR}
+		WHERE CNTHX_NO = #{cnthxNo, jdbcType=VARCHAR}
+	</update>
+	
+	<!-- 근로계약수정 -->
+	<update id="updateRctWkList" parameterType="CnthxVO">
+	UPDATE CNTHX
+	SET CNT_EDITOR = #{cntEditor, jdbcType=VARCHAR},
+	    EDIT_DATE = SYSDATE,   
+	    BLCT_SDATE = #{blctSdate, jdbcType=DATE},
+	    BLCT_EDATE = #{blctEdate, jdbcType=DATE},        
+	    BL_CASE = #{blCase, jdbcType=VARCHAR},     
+	    PR_SDATE = #{prSdate, jdbcType=DATE},
+	    PR_EDATE = #{prEdate, jdbcType=DATE},          
+	    CNG_MM = #{cngMm, jdbcType=VARCHAR}
+	WHERE CNTHX_NO = #{cnthxNo, jdbcType=VARCHAR}
+	</update>
+
+	<!-- 계약삭제 -->	
+	<update id="deleteRctWkList" parameterType="String">
+		UPDATE CNTHX
+		SET     DELYN ='Y'
+		WHERE   CNTHX_NO = #{cnthxNo, jdbcType=VARCHAR}
+		AND (NOT DELYN = 'Y' OR DELYN IS NULL)
+	</update>
+
+	<!-- 개별사원 근로계약 전체목록 출력 -->	
+	<select id="WorkCntRetrieve" resultType="CnthxVO">
+		SELECT CNTHX_NO,
+		            CNT_CNGR,                
+		            TO_CHAR(BLCT_SDATE,'YYYY-MM-DD') AS BLCT_SDATE,
+		            NVL(TO_CHAR(BLCT_EDATE,'YYYY-MM-DD'),'미정') AS BLCT_EDATE,
+		            TO_CHAR(PR_SDATE,'YYYY-MM-DD') AS PR_SDATE,
+		            NVL(TO_CHAR(PR_EDATE,'YYYY-MM-DD'),TO_CHAR(PR_SDATE+90,'YYYY-MM-DD')) AS PR_EDATE,
+		            BL_CASE,
+		            CNG_MM ,
+		            CASE
+		            WHEN CNT_EDITOR IS NULL THEN ( SELECT '작성자 : ' ||  EMP_NM FROM EMP WHERE CNT_WRITER = EMP_NO)
+		            ELSE (SELECT '수정자 : ' || EMP_NM FROM EMP WHERE CNT_EDITOR = EMP_NO)
+		            END AS CNT_WRITER,
+		            CASE
+		            WHEN EDIT_DATE IS NULL THEN '작성일자 : ' || TO_CHAR(CNG_DATE,'YYYY-MM-DD HH24:MI')
+		            ELSE '수정일자 : ' || TO_CHAR(EDIT_DATE,'YYYY-MM-DD HH24:MI')
+		            END AS CNG_DATE
+		FROM CNTHX
+		WHERE CNT_CNGR = #{empNo, jdbcType=VARCHAR}
+		AND DELYN IS NULL
+		AND BLCT_SDATE IS NOT NULL
+		ORDER BY CNTHX_NO DESC
+	</select>
+	
+	<!-- 개별사원 임금계약 전체목록 출력 -->	
+	<select id="WageCntRetrieve" resultType="CnthxVO">
+		SELECT  CNTHX_NO,
+		        CNT_CNGR,
+                TO_CHAR(BWCT_SDATE,'YYYY-MM-DD') AS BWCT_SDATE,
+                NVL(TO_CHAR(BWCT_EDATE,'YYYY-MM-DD'),'미정') AS BWCT_EDATE,
+		        BCNT_AMT,
+		        BFEX,
+		        BINC_CLF,
+		        CNG_MM ,
+                CASE
+                WHEN CNT_EDITOR IS NULL THEN ( SELECT '작성자 : ' || EMP_NM FROM EMP WHERE CNT_WRITER = EMP_NO)
+                ELSE (SELECT '수정자 : ' || EMP_NM FROM EMP WHERE CNT_EDITOR = EMP_NO)
+                END AS CNT_WRITER,
+                CASE
+                WHEN EDIT_DATE IS NULL THEN '작성일자 : ' || TO_CHAR(CNG_DATE,'YYYY-MM-DD HH24:MI')
+                ELSE '수정일자 : ' || TO_CHAR(EDIT_DATE,'YYYY-MM-DD HH24:MI')
+                END AS CNG_DATE
+                
+		FROM CNTHX
+		WHERE CNT_CNGR = #{empNo, jdbcType=VARCHAR}
+		AND DELYN IS NULL
+		AND BWCT_SDATE IS NOT NULL
+		ORDER BY CNTHX_NO DESC
+	</select>
+	
+	<!-- 목록 내 글번호별 개별 계약정보 조회 -->
+	<select id="choosenCntRetrieve" resultType="CnthxVO">
+		SELECT *
+		FROM(
+		    SELECT  CNTHX_NO,
+		            CNT_CNGR,
+		            CNT_WRITER,
+		            TO_CHAR(BLCT_SDATE,'YYYY-MM-DD') AS BLCT_SDATE,
+		            TO_CHAR(BLCT_EDATE,'YYYY-MM-DD') AS BLCT_EDATE,
+		            BL_CASE,
+		            TO_CHAR(PR_SDATE,'YYYY-MM-DD') AS PR_SDATE,
+		            TO_CHAR(PR_EDATE,'YYYY-MM-DD') AS PR_EDATE,
+                    TO_CHAR(BwCT_SDATE,'YYYY-MM-DD') AS BwCT_SDATE,
+		            TO_CHAR(BwCT_EDATE,'YYYY-MM-DD') AS BwCT_EDATE,
+		            BINC_CLF,		            
+		            BCNT_AMT,
+		            BFEX,
+                    CNG_MM,
+                    TO_CHAR(CNG_DATE,'YYYY-MM-DD') AS CNG_DATE
+		    FROM CNTHX
+		    WHERE CNTHX_NO = #{cnthxNo, jdbcType=VARCHAR}
+		    AND DELYN IS NULL
+		    ORDER BY CNTHX_NO DESC
+		    )
+		WHERE ROWNUM = 1
+	</select>
+
+<!--====================================================계약정보쿼리 종료=========================================================-->
+	
+
+<!--====================================================재직상태쿼리 시작=========================================================-->
+	<!-- 퇴직입력 -->
+	<insert id="insertOutToEmptst" parameterType="EmptVO">
+		INSERT INTO EMPT(EMPT_NO, EMP_NO, EMPT_ST, OT_DATE, ST_CLF, ST_MEMO)
+		VALUES (
+		    EMPT_SEQ.NEXTVAL,
+		    #{empNo, jdbcType=VARCHAR},
+		    '퇴직',
+		    #{otDate, jdbcType=DATE},
+		    #{stClf, jdbcType=VARCHAR},
+		    #{stMemo, jdbcType=VARCHAR}
+		)
+	</insert>
+	
+	<!-- 휴직입력 -->
+	<insert id="insertBkToEmptst" parameterType="EmptVO">
+		INSERT INTO EMPT(EMPT_NO, EMP_NO, EMPT_ST, BK_SDATE, BK_EDATE, ST_CLF, ST_MEMO)
+		VALUES (
+		    EMPT_SEQ.NEXTVAL,
+		    #{empNo, jdbcType=VARCHAR},
+		    '휴직',
+		    #{bkSdate, jdbcType=DATE},
+		    #{bkEdate, jdbcType=DATE},
+		    #{stClf, jdbcType=VARCHAR},
+		    #{stMemo, jdbcType=VARCHAR}
+		)
+	</insert>
+	
+	<!-- 휴직이력조회 -->
+	<select id="bkStateRetrieve" parameterType="String" resultType="EmptVO">
+		SELECT EMPT_NO,
+		    EMP_NO,
+		     <![CDATA[ 
+		    CASE WHEN (SYSDATE BETWEEN BK_SDATE AND BK_EDATE) THEN '휴직'
+			     WHEN (BK_SDATE IS NOT NULL AND SYSDATE+31 >=BK_SDATE AND SYSDATE < BK_EDATE) THEN '휴직예정'
+			     WHEN (OT_DATE IS NOT NULL AND SYSDATE>OT_DATE) THEN '퇴직'
+			     WHEN (OT_DATE IS NOT NULL AND SYSDATE+31 >=OT_DATE) THEN '퇴직예정'
+			     ELSE '재직중' END "EMPT_ST",
+			]]>
+		    TO_CHAR(BK_SDATE,'YYYY-MM-DD') AS BK_SDATE,
+		    TO_CHAR(BK_EDATE,'YYYY-MM-DD') AS BK_EDATE,
+		    TO_CHAR(OT_DATE,'YYYY-MM-DD') AS OT_DATE,
+		    ST_CLF,
+		    ST_MEMO
+		FROM EMPT
+		WHERE EMP_NO = #{empNo, jdbcType=VARCHAR}
+		AND OT_DATE IS NULL
+		AND BK_SDATE IS NOT NULL
+		AND DEL_YN IS NULL
+		ORDER BY EMPT_NO DESC
+	</select>
+
+	<!-- 휴직기록삭제 -->
+	<update id="deleteBkState" parameterType="String">
+		UPDATE EMPT
+		SET DEL_YN = 'Y'
+		WHERE EMPT_NO = #{emptNo, jdbcType=VARCHAR}
+	</update>
+	
+	<!-- 휴직기록수정 -->
+	<update id="modifyBkState" parameterType="EmptVO">
+		UPDATE EMPT
+		SET ST_CLF = #{stClf, jdbcType=VARCHAR},
+			BK_SDATE = #{bkSdate, jdbcType=DATE},
+			BK_EDATE = #{bkEdate, jdbcType=DATE},
+			ST_MEMO = #{stMemo, jdbcType=VARCHAR}
+		WHERE EMPT_NO = #{emptNo, jdbcType=VARCHAR}
+	</update>
+
+<!--====================================================재직정보쿼리 종료=========================================================-->
+
+	
+	
+	<!-- 라벨유형 List -->
+	<select id="selectLabel" resultType="CmcodeVO">
+		SELECT  CM_CODE
+		      , CODE_NM  
+		      , CODE_ABST 
+
+		FROM CMCODE
+		
+		START WITH PARENT_CD = 'B01'
+		
+		CONNECT BY PRIOR CM_CODE = PARENT_CD
+	
+	</select>
+	
+	<!-- 인사정보-기본정보 변경 -->
+	<update id="updateEmp" parameterType="EmpVO"  >
+	
+		UPDATE EMP 
+		SET  ENT_CASE = #{entCase, jdbcType=VARCHAR}
+		    ,ENT_DATE = #{entDate ,jdbcType=DATE}
+		WHERE EMP_NO = #{empNo ,jdbcType=VARCHAR}
+	</update>
+	
+	<select id="bankNmList" resultType="CmcodeVO">
+		SELECT  
+		 CM_CODE
+	    ,CODE_NM 
+
+		FROM CMCODE
+		
+		START WITH PARENT_CD = 'D01'
+		CONNECT BY PRIOR CM_CODE = PARENT_CD
+	</select>
+	
+	<!-- 기본정보 수정 -->
+	<update id="updateBasicInfo" parameterType="EmpVO">
+	UPDATE EMP
+	SET EMP_NM = #{empNm, jdbcType=VARCHAR }
+	   , ENG_NM = #{engNm, jdbcType=VARCHAR}
+	   , EMP_MM = #{empMm, jdbcType=VARCHAR}
+	   , REGNO1 = #{regno1, jdbcType=NUMERIC}
+	   , REGNO2 = #{regno2, jdbcType=NUMERIC}
+	   , CP_NO = #{cpNo , jdbcType=VARCHAR}
+	   , EMP_ADDR = #{empAddr, jdbcType=VARCHAR}
+	   , BANK = #{bank, jdbcType=VARCHAR}
+	   , ACCT_NO = #{acctNo, jdbcType=VARCHAR}
+	WHERE EMP_NO = #{empNo, jdbcType=VARCHAR}
+	</update>
+	
+	
+	
+	
+	<!-- 가족정보 추가 -->
+	<insert id="insertEmpFam" parameterType="EmpFamVO"  >
+	INSERT INTO EMP_FAM (
+    EFAM_NO,
+    EFAM_EMPNO,
+    FAM_NM,
+    FAM_RLN,
+    FAM_REGNO1,
+    FAM_REGNO2
+	) VALUES (
+	    EMP_FAM_SEQ.NEXTVAL
+	    ,#{efamEmpno, jdbcType=VARCHAR }
+	    ,#{famNm, jdbcType=VARCHAR }
+	    ,#{famRln, jdbcType=VARCHAR }
+	    ,#{famRegno1, jdbcType=NUMERIC }
+	    ,#{famRegno2, jdbcType=NUMERIC }
+	)
+	</insert>
+	
+	<!-- 가족정보 List 조회-->
+	<select id="selectFamList" parameterType="string" resultType="EmpFamVO">
+	
+		SELECT
+	    EFAM_NO
+	   ,EFAM_EMPNO
+	   ,FAM_NM
+	   ,FAM_RLN
+	   ,FAM_REGNO1
+	   ,FAM_REGNO2
+		FROM EMP_FAM
+		WHERE EFAM_EMPNO = #{efamEmpno, jdbcType=VARCHAR}
+		ORDER BY EFAM_NO
+	</select>
+	
+	
+	<!-- 기본공제 인원수, 자녀세액공제 인원수 조회 -->
+	<select id="selectFamCount" parameterType="string" resultType="EmpFamVO">
+		SELECT 
+		COUNT(CASE WHEN FAM_RLN = '자녀·손자녀(자녀 세액공제 해당)' THEN 1 END) AS CHILD_COUNT,
+		COUNT(FAM_RLN) AS NORMAL_COUNT 
+		FROM EMP_FAM
+		WHERE EFAM_EMPNO = #{efamEmpno, jdbcType=VARCHAR}
+	</select>
+	
+	
+	<!-- 수정할 가족정보 조회  -->
+	<select id="selectFamView" parameterType="string" resultType="EmpFamVO">
+		SELECT
+	        EFAM_NO
+		   ,EFAM_EMPNO
+		   ,FAM_NM
+		   ,FAM_RLN
+		   ,FAM_REGNO1
+		   ,FAM_REGNO2
+			FROM EMP_FAM
+		WHERE EFAM_NO = #{efamNo}
+	
+	</select>
+	
+	<!-- 가족정보 수정 -->
+	
+	<update id="updateEmpFam" parameterType="EmpFamVO" >
+		UPDATE EMP_FAM
+		SET     
+		FAM_NM = #{famNm, jdbcType=VARCHAR}
+	   ,FAM_RLN = #{famRln, jdbcType=VARCHAR}
+	   ,FAM_REGNO1 = #{famRegno1, jdbcType=NUMERIC}
+	   ,FAM_REGNO2 = #{famRegno2, jdbcType=NUMERIC}
+		WHERE EFAM_NO = #{efamNo, jdbcType=VARCHAR}
+	
+	</update>
+	
+	
+	<!-- 가족정보 삭제 -->
+	<delete id="deleteEmpFam" parameterType="string">
+		DELETE 
+		FROM EMP_FAM
+		WHERE EFAM_NO = #{efamNo , jdbcType=VARCHAR}
+	</delete>
+	
+	<!-- 경력 추가  -->
+	<insert id="insertCareerInfo" parameterType="CareerVO">
+	
+		INSERT INTO CAREER (
+		    CA_NO,
+		    EMP_NO,
+		    CA_NM,
+		    CA_CNTCASE,
+		    CA_ETDATE,
+		    CA_EDATE,
+		    CA_DEPT,
+		    CA_JOB,
+		    CA_GRD
+		) VALUES (
+		     CAREER_SEQ.NEXTVAL 
+		    ,#{empNo, jdbcType=VARCHAR}
+		    ,#{caNm, jdbcType=VARCHAR}
+		   	,#{caCntcase, jdbcType=VARCHAR}
+		    ,#{caEtdate, jdbcType=DATE}
+		    ,#{caEdate, jdbcType=DATE}
+		    ,#{caDept, jdbcType=VARCHAR}
+		    ,#{caJob, jdbcType=VARCHAR}
+		    ,#{caGrd, jdbcType=VARCHAR}
+		    
+		)
+	
+	<selectKey keyProperty="caNo" resultType="string" order="AFTER">
+		SELECT CAREER_SEQ.CURRVAL FROM DUAL
+	</selectKey>
+	</insert>
+	
+	
+	
+	<!-- 한개의 경력에 대한 정보 조회  -->
+	<select id="selectCareerView" parameterType="string" resultType="CareerVO">
+		        
+		SELECT
+	    CA_NO,
+	    EMP_NO,
+	    CA_NM,
+	    CA_CLF,
+	    CA_CNTCASE,
+	    CA_ETDATE,
+	    CA_EDATE,
+	    CA_DEPT,
+	    CA_JOB,
+	    CA_DUTY,
+	    CA_GRD
+		      , CASE 
+		                WHEN TRUNC(MONTHS_BETWEEN( CA_EDATE, CA_ETDATE)/12, 0) ||'년'
+		                     || TRUNC(MOD(MONTHS_BETWEEN( CA_EDATE, CA_ETDATE)/12, 1)*12, 0 ) || ' 개월' = '0년0 개월'
+		                THEN ''
+		                WHEN TRUNC(MONTHS_BETWEEN( CA_EDATE, CA_ETDATE)/12, 0) ||'년' = '0년'
+		                THEN TRUNC(MOD(MONTHS_BETWEEN( CA_EDATE, CA_ETDATE)/12, 1)*12, 0 ) || ' 개월'
+		                WHEN TRUNC(MOD(MONTHS_BETWEEN( CA_EDATE, CA_ETDATE)/12, 1)*12, 0 ) || ' 개월' = '0 개월'
+		                THEN TRUNC(MONTHS_BETWEEN( CA_EDATE, CA_ETDATE)/12, 0) ||'년' 
+		                ELSE TRUNC(MONTHS_BETWEEN( CA_EDATE, CA_ETDATE)/12, 0) ||'년'
+		                    || TRUNC(MOD(MONTHS_BETWEEN( CA_EDATE, CA_ETDATE)/12, 1)*12, 0 ) || ' 개월' 
+		            END AS "CA_PERIOD"
+		FROM CAREER
+		WHERE CA_NO = #{caNo, jdbcType=VARCHAR}
+	
+	</select>
+	
+	
+	<select id="selectGradeClfList" resultType="CmcodeVO">
+		SELECT CM_CODE
+		    ,  CODE_NM
+		FROM CMCODE
+		WHERE PARENT_CD = 'K01'
+	</select>
+	
+	<select id="selectAcClfList" resultType="CmcodeVO">
+		SELECT CM_CODE
+		    ,  CODE_NM
+		FROM CMCODE
+		WHERE PARENT_CD = 'E01'
+	</select>
+	
+	<select id="selectCaCntCaseList" resultType="CmcodeVO" >
+		SELECT CM_CODE
+		    ,  CODE_NM
+		FROM CMCODE
+		WHERE PARENT_CD = 'J01'
+	</select>
+	
+	<update id="careerInfoUpdate" parameterType="CareerVO" >
+		UPDATE CAREER
+		SET CA_NM = #{caNm, jdbcType=VARCHAR},
+		    CA_CNTCASE = #{caCntcase, jdbcType=VARCHAR},
+		    CA_ETDATE = #{caEtdate, jdbcType= DATE},
+		    CA_EDATE = #{caEdate, jdbcType= DATE},
+		    CA_DEPT = #{caDept, jdbcType=VARCHAR},
+		    CA_JOB = #{caJob, jdbcType=VARCHAR},
+		    CA_GRD = #{caGrd, jdbcType=VARCHAR}
+		WHERE CA_NO = #{caNo, jdbcType=VARCHAR}
+	</update>
+	
+	<delete id="careerInfoDelete" parameterType="string" >
+		DELETE
+		FROM CAREER
+		WHERE CA_NO = #{caNo, jdbcType=VARCHAR}
+	</delete>
+	
+	
+	
+	<!-- 학력 Insert  -->
+	<insert id="accInfoInsert" parameterType="AccaVO">
+		
+		INSERT INTO ACCA (
+		    ACCA_NO,
+		    EMP_NO,
+		    AC_CLF,
+		    AC_NM,
+		    AC_ETDATE,
+		    AC_EDATE,
+		    GRAD_CLF,
+		    MAJ
+		) VALUES (
+		    ACCA_SEQ.NEXTVAL
+		    ,#{empNo , jdbcType=VARCHAR}
+		    ,#{acClf, jdbcType=VARCHAR}
+		    ,#{acNm, jdbcType=VARCHAR}
+		    ,#{acEtdate, jdbcType=DATE}
+		    ,#{acEdate, jdbcType=DATE}
+			,#{gradClf, jdbcType=VARCHAR}
+		    ,#{maj, jdbcType=VARCHAR}
+		)
+	
+	</insert>
+	
+	
+	<!-- 학력 List 조회 -->
+	<select id="selectAccaList" parameterType="string" resultType="AccaVO">
+		SELECT
+		    ACCA_NO,
+		    EMP_NO,
+		    AC_CLF,
+		    AC_NM,
+		    TO_CHAR(AC_ETDATE,'YYYY-MM-DD') "AC_ETDATE",  
+    		TO_CHAR(AC_EDATE,'YYYY-MM-DD') "AC_EDATE",
+		    GRAD_CLF,
+		    MAJ
+		    , CASE 
+		        WHEN TRUNC(MONTHS_BETWEEN( AC_EDATE, AC_ETDATE)/12, 0) ||'년'
+		             || TRUNC(MOD(MONTHS_BETWEEN( AC_EDATE, AC_ETDATE)/12, 1)*12, 0 ) || ' 개월' = '0년0 개월'
+		        THEN ''
+		        WHEN TRUNC(MONTHS_BETWEEN( AC_EDATE, AC_ETDATE)/12, 0) ||'년' = '0년'
+		        THEN TRUNC(MOD(MONTHS_BETWEEN( AC_EDATE, AC_ETDATE)/12, 1)*12, 0 ) || ' 개월'
+		        WHEN TRUNC(MOD(MONTHS_BETWEEN( AC_EDATE, AC_ETDATE)/12, 1)*12, 0 ) || ' 개월' = '0 개월'
+		        THEN TRUNC(MONTHS_BETWEEN( AC_EDATE, AC_ETDATE)/12, 0) ||'년'
+		        WHEN AC_EDATE IS NULL AND TRUNC(MONTHS_BETWEEN( SYSDATE, AC_ETDATE)/12, 0) ||'년' = '0년'
+		        THEN TRUNC(MOD(MONTHS_BETWEEN( SYSDATE, AC_ETDATE)/12, 1)*12, 0 ) || ' 개월' 
+		        WHEN AC_EDATE IS NULL
+		        THEN TRUNC(MONTHS_BETWEEN( SYSDATE, AC_ETDATE)/12, 0) ||'년'
+		            || TRUNC(MOD(MONTHS_BETWEEN( SYSDATE, AC_ETDATE)/12, 1)*12, 0 ) || ' 개월' 
+		
+		        ELSE TRUNC(MONTHS_BETWEEN( AC_EDATE, AC_ETDATE)/12, 0) ||'년'
+		            || TRUNC(MOD(MONTHS_BETWEEN( AC_EDATE, AC_ETDATE)/12, 1)*12, 0 ) || ' 개월' 
+		    END AS "ACC_PERIOD"
+		FROM ACCA
+		WHERE EMP_NO = #{empNo , jdbcType=VARCHAR}
+		ORDER BY AC_ETDATE DESC, AC_EDATE DESC
+	</select>
+	
+	<update id="updateAccaInfo" parameterType="AccaVO">
+		UPDATE ACCA
+		SET 
+		    AC_CLF = #{acClf, jdbcType=VARCHAR},
+		    AC_NM = #{acNm, jdbcType=VARCHAR},
+		    AC_ETDATE = #{acEtdate, jdbcType=DATE},
+		    AC_EDATE = #{acEdate , jdbcType=DATE},
+		    GRAD_CLF = #{gradClf, jdbcType=VARCHAR},
+		    MAJ = #{maj ,jdbcType=VARCHAR}
+		WHERE ACCA_NO = #{accaNo, jdbcType=VARCHAR}
+	</update>
+	
+	<delete id="deleteAccaInfo" parameterType="string">
+		DELETE 
+		FROM ACCA
+		WHERE ACCA_NO =	#{accaNo} 
+	</delete>
+	
+	<!-- 프로필 이미지 update -->
+	<update id="updateEmpImg" parameterType="EmpVO">
+		UPDATE EMP
+		SET EMP_IMG = #{empImg, jdbcType=VARCHAR}
+		WHERE EMP_NO = #{empNo, jdbcType=VARCHAR}
+	
+	</update>
+	
+	
+	<!-- 프로필 이미지 삭제 (null로 업데이트) -->
+	<update id="deleteEmpImg" parameterType="string" >
+		UPDATE EMP
+		SET EMP_IMG = ''
+		WHERE EMP_NO =#{empNo, jdbcType=VARCHAR}	
+	</update>
+	
+	
+	
+	
+	
+	<!-- 빠른 검색 - 구성원  -->
+	<resultMap type="EmpVO" id="quickEmpMap" autoMapping="true">
+		<id property="empNo" column="EMP_NO"/>
+		
+		<collection property="jobList" ofType="OwnJobVO" notNullColumn="OJ_NO" autoMapping="true">
+			<id property="ojNo" column="OJ_NO"/>
+		</collection>
+		
+		<collection property="deptList" ofType="BlgDeptVO" notNullColumn="BD_NO" autoMapping="true">
+			<id property="bdNo" column="BD_NO"/>
+		</collection>
+
+	</resultMap>
+	<select id="quickSerchEmp" parameterType="string" resultMap="quickEmpMap" >
+		WITH MAX_ASGMT AS(
+	          SELECT MAX(ASGMT_NO) AS ASGMT_NO, ASGMT_PERS AS EMP_NO
+	          FROM ASGMT 
+	          WHERE ASGMT_PERS IN (SELECT EMP_NO FROM EMP)
+	           <![CDATA[ 
+	          AND ASGMT_DATE <= SYSDATE
+	          ]]>
+	    	  AND ASGMT_CCST IS NULL
+	          GROUP BY ASGMT_PERS
+	          
+	    ), ASGMT_VIEW AS(
+	    SELECT * 
+	    FROM ASGMT A INNER JOIN MAX_ASGMT C ON (A.ASGMT_NO = C.ASGMT_NO 
+	                                            AND A.ASGMT_PERS = C.EMP_NO)
+	                LEFT OUTER JOIN BLG_DEPT B  ON (C.EMP_NO = B.ASGMT_PERS 
+	                                                AND C.ASGMT_NO = B.ASGMT_NO)
+	                LEFT OUTER JOIN OWN_JOB O   ON (C.EMP_NO = O.ASGMT_PERS 
+	                                                AND C.ASGMT_NO = O.ASGMT_NO)
+	    )
+		SELECT   E.EMP_NM  , E.EMP_NO  , J.JNM , DE.DNM	, A.OJ_NO  , A.BD_NO, E.EMP_IMG		     		
+		FROM EMP E LEFT OUTER JOIN ASGMT_VIEW A ON ( E.EMP_NO = A.EMP_NO)
+					LEFT OUTER JOIN DEPT DE ON ( A.DCODE = DE.DCODE)
+					LEFT OUTER JOIN DUTY DU ON ( A.DTCODE = DU.DTCODE)
+					LEFT OUTER JOIN JOB J ON (A.JCODE = J.JCODE)
+		 <![CDATA[ 			
+        WHERE INSTR(EMP_NM, #{empNm , jdbcType=VARCHAR} ) > 0
+        ]]>
+		ORDER BY E.EMP_NM
+	</select>
+</mapper>

@@ -1,0 +1,494 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.or.ddit.work.dao.WorkDAO">
+	<!-- 근무유형 목록 조회 -->
+	<select id="selectWorkList" resultType="WorkVO">
+		SELECT
+		    WK_CODE,
+		    WK_NM,
+		    WK_DESCR,
+		    WK_DEL,
+		    WK_SCD,
+		    WK_NIGHT,
+		    WK_HD
+		FROM
+		    WORK
+		WHERE WK_DEL IS NULL
+		ORDER BY WK_CODE
+	</select>
+	
+	<!-- 근무 조회 -->
+	<select id="selectWork" resultType="WorkVO" parameterType="string">
+		SELECT
+		    WK_CODE,
+		    WK_NM,
+		    WK_DESCR,
+		    WK_DEL,
+		    WK_SCD,
+		    WK_NIGHT,
+		    WK_HD
+		FROM WORK
+		WHERE WK_DEL IS NULL
+        AND WK_CODE = #{wkCode,jdbcType=VARCHAR}
+	</select>
+	
+	<!-- 근무 추가 -->
+	<insert id="insertWork" parameterType="WorkVO">
+		INSERT INTO WORK (
+		    WK_CODE,
+		    WK_NM,
+		    WK_DESCR,
+		    WK_SCD,
+		    WK_NIGHT,
+		    WK_HD
+		) VALUES (
+		    'WK' || WORK_SEQ.NEXTVAL
+		    ,#{wkNm,jdbcType=VARCHAR}
+		    ,#{wkDescr,jdbcType=VARCHAR}
+		    ,#{wkScd,jdbcType=VARCHAR}
+		    ,#{wkNight,jdbcType=VARCHAR}
+		    ,#{wkHd,jdbcType=VARCHAR}
+		)
+	</insert>
+	
+	<!-- 근무삭제 -->
+	<update id="deleteWork" parameterType="string">
+		UPDATE WORK
+		SET WK_DEL = 'Y'
+		WHERE  WK_CODE = #{wkCode,jdbcType=VARCHAR}
+		AND WK_CODE NOT IN ('WK1','WK2','WK6','WK7')
+	</update>
+	
+	<!-- 근무변경 -->
+	<update id="updateWork" parameterType="WorkVO">
+		UPDATE WORK
+		SET
+		     WK_NM = #{wkNm,jdbcType=VARCHAR}
+		     ,WK_DESCR = #{wkDescr,jdbcType=VARCHAR}
+		     ,WK_SCD = #{wkScd,jdbcType=VARCHAR}
+		     ,WK_NIGHT = #{wkNight,jdbcType=VARCHAR}
+		     ,WK_HD = #{wkHd,jdbcType=VARCHAR}
+		WHERE WK_CODE = #{wkCode,jdbcType=VARCHAR}
+		AND WK_DEL IS NULL
+		AND WK_CODE NOT IN ('WK1','WK6','WK7')
+
+	</update>
+	
+	<!-- 근무기록 상세 조회 -->
+	<select id="selectWorkAp" resultType="WkApVO" parameterType="string">
+		SELECT
+		    WA_NO		, WK_CODE		, WA_APER
+		    , WA_RVER	, WA_APDATE		, WA_STIME
+		    , WA_ETIME	, WA_ARSN		, EW_APST
+		    , EW_ADATE	, EW_REJRSN		, WA_EXTIME
+		    , WA_NIGTIME, WA_HDTIME		, WA_DEL
+		    , WA_TLTIME	, WA_DATE
+		FROM WK_AP
+		WHERE WA_NO = #{waNo,jdbcType=VARCHAR}
+	</select>
+
+	<!-- 근무기록 일주일 근무 총시간 -->
+	<select id="selectWorkApWeekTime" resultType="int" parameterType="hashMap">
+		SELECT NVL(SUM(WA_TLTIME),0)
+		FROM WK_AP A LEFT OUTER JOIN WORK B ON ( A.WK_CODE = B.WK_CODE)
+		WHERE WA_APER = #{empNo}
+		AND NOT EW_APST = '반려'
+		AND WA_DEL IS NULL
+		AND WA_DATE BETWEEN TRUNC(SYSDATE + #{num},'iw') AND TRUNC(SYSDATE + #{num},'iw')+6
+		ORDER BY WA_DATE
+	</select>
+	<!-- 개인 근무기록 일주일 조회 -->
+	<select id="selectWorkApList" resultType="WkApVO" parameterType="hashMap">
+		SELECT WA_NO
+		     , A.WK_CODE
+		     , WK_NM
+		     , WA_APER
+		     , TO_CHAR(WA_DATE, 'YYYY-MM-DD') "WA_DATE"
+		     , WA_STIME
+		     , WA_ETIME
+		     , EW_APST
+		     , WA_TLTIME
+		FROM WK_AP A LEFT OUTER JOIN WORK B ON ( A.WK_CODE = B.WK_CODE)
+		WHERE WA_APER = #{empNo}
+		AND NOT EW_APST = '반려'
+		AND WA_DEL IS NULL
+		AND WA_DATE BETWEEN TRUNC(SYSDATE + #{num},'iw') AND TRUNC(SYSDATE + #{num},'iw')+6
+		ORDER BY WA_DATE
+	</select>
+	
+	<resultMap type="EmpVO" id="empWorkApMap" autoMapping="true">
+		<id property="empNo" column="EMP_NO"/>
+		
+		<collection property="jobList" ofType="OwnJobVO" notNullColumn="OJ_NO" autoMapping="true">
+			<id property="ojNo" column="OJ_NO"/>
+		</collection>
+		
+		<collection property="deptList" ofType="BlgDeptVO" notNullColumn="BD_NO" autoMapping="true">
+			<id property="bdNo" column="BD_NO"/>
+		</collection>
+
+		<collection property="workApList" ofType="WkApVO" notNullColumn="WA_NO" autoMapping="true">
+			<id property="waNo" column="WA_NO"/>
+		</collection>
+		
+	</resultMap>
+	<!-- 사원들 근무기록 일주일 조회 -->
+	<select id="selectEmpWorkApList" resultMap="empWorkApMap" parameterType="PagingVO">
+	    WITH MAX_ASGMT AS(
+	          SELECT MAX(ASGMT_NO) AS ASGMT_NO, ASGMT_PERS AS EMP_NO
+	          FROM ASGMT 
+	          WHERE ASGMT_PERS IN (SELECT EMP_NO FROM EMP)
+	           <![CDATA[
+	          AND ASGMT_DATE <= SYSDATE
+	          ]]>
+	    	  AND ASGMT_CCST IS NULL
+	          GROUP BY ASGMT_PERS
+	          
+	    ), ASGMT_VIEW AS(
+	    SELECT * 
+	    FROM ASGMT A INNER JOIN MAX_ASGMT C ON (A.ASGMT_NO = C.ASGMT_NO 
+	                                            AND A.ASGMT_PERS = C.EMP_NO)
+	                LEFT OUTER JOIN BLG_DEPT B  ON (C.EMP_NO = B.ASGMT_PERS 
+	                                                AND C.ASGMT_NO = B.ASGMT_NO)
+	                LEFT OUTER JOIN OWN_JOB O   ON (C.EMP_NO = O.ASGMT_PERS 
+	                                                AND C.ASGMT_NO = O.ASGMT_NO)
+	    ), WK_AP_VIEW AS(
+                SELECT WA_NO		, A.WK_CODE			, WK_NM
+                     , WA_APER		, TO_CHAR(WA_DATE, 'YYYY-MM-DD') "WA_DATE"
+                     , WA_STIME		, WA_ETIME			, EW_APST
+                     , WA_TLTIME	, WA_EXTIME			, WA_NIGTIME
+                     , WA_HDTIME
+                     
+                FROM WK_AP A LEFT OUTER JOIN WORK B ON ( A.WK_CODE = B.WK_CODE)
+                WHERE NOT EW_APST = '반려'
+                AND WA_DEL IS NULL
+                AND WA_DATE BETWEEN TRUNC(SYSDATE + #{dataMap.num},'iw') AND TRUNC(SYSDATE + #{dataMap.num},'iw')+6
+        )
+        SELECT *
+		FROM(
+			SELECT C.* , DENSE_RANK() OVER (ORDER BY C.EMP_NO DESC) AS RNUM
+			FROM(
+				SELECT 
+				        E.EMP_NM		, J.JNM			, E.EMP_NO
+						, A.JCODE		, W.WA_NO		, W.WK_CODE
+		                , W.WK_NM		, W.WA_APER		, W.WA_DATE
+		                , W.WA_STIME	, W.WA_ETIME	, W.EW_APST
+		                , W.WA_TLTIME	, W.WA_EXTIME	, W.WA_NIGTIME
+		                , W.WA_HDTIME	, A.BD_NO		, A.DCODE
+		                , A.OJ_NO
+		                
+				FROM EMP E LEFT OUTER JOIN ASGMT_VIEW A ON ( E.EMP_NO = A.EMP_NO)
+							LEFT OUTER JOIN JOB J ON (A.JCODE = J.JCODE)
+							LEFT OUTER JOIN DEPT DE ON ( A.DCODE = DE.DCODE)
+		                    LEFT OUTER JOIN WK_AP_VIEW W ON (E.EMP_NO = W.WA_APER)
+				<if test="dataMap.dadcode!=null and !dataMap.dcode.equals('')">
+				WHERE B.DCODE = #{dataMap.dcode}
+				</if>
+				ORDER BY EMP_NO, A.OJ_NO
+				) C
+		) D
+		<![CDATA[
+		WHERE RNUM >= #{startRow} AND RNUM <= #{endRow}
+		]]>
+	</select>
+	
+	<select id="selectEmpWorkApListCnt" resultType="int" parameterType="PagingVO">
+		WITH MAX_ASGMT AS(
+	          SELECT MAX(ASGMT_NO) AS ASGMT_NO, ASGMT_PERS AS EMP_NO
+	          FROM ASGMT 
+	          WHERE ASGMT_PERS IN (SELECT EMP_NO FROM EMP)
+	           <![CDATA[
+	          AND ASGMT_DATE <= SYSDATE
+	          ]]>
+	    	  AND ASGMT_CCST IS NULL
+	          GROUP BY ASGMT_PERS
+	          
+	    ), ASGMT_VIEW AS(
+	    SELECT * 
+	    FROM ASGMT A INNER JOIN MAX_ASGMT C ON (A.ASGMT_NO = C.ASGMT_NO 
+	                                            AND A.ASGMT_PERS = C.EMP_NO)
+	                LEFT OUTER JOIN BLG_DEPT B  ON (C.EMP_NO = B.ASGMT_PERS 
+	                                                AND C.ASGMT_NO = B.ASGMT_NO)
+	                LEFT OUTER JOIN OWN_JOB O   ON (C.EMP_NO = O.ASGMT_PERS 
+	                                                AND C.ASGMT_NO = O.ASGMT_NO)
+	    ), WK_AP_VIEW AS(
+                SELECT WA_NO		, A.WK_CODE			, WK_NM
+                     , WA_APER		, TO_CHAR(WA_DATE, 'YYYY-MM-DD') "WA_DATE"
+                     , WA_STIME		, WA_ETIME			, EW_APST
+                     , WA_TLTIME	, WA_EXTIME			, WA_NIGTIME
+                     , WA_HDTIME
+                     
+                FROM WK_AP A LEFT OUTER JOIN WORK B ON ( A.WK_CODE = B.WK_CODE)
+                WHERE NOT EW_APST = '반려'
+                AND WA_DEL IS NULL
+                AND WA_DATE BETWEEN TRUNC(SYSDATE + #{dataMap.num},'iw') AND TRUNC(SYSDATE + #{dataMap.num},'iw')+6
+        )
+
+				SELECT COUNT(DISTINCT E.EMP_NO)
+				FROM EMP E LEFT OUTER JOIN ASGMT_VIEW A ON ( E.EMP_NO = A.EMP_NO)
+							LEFT OUTER JOIN JOB J ON (A.JCODE = J.JCODE)
+							LEFT OUTER JOIN DEPT DE ON ( A.DCODE = DE.DCODE)
+		                    LEFT OUTER JOIN WK_AP_VIEW W ON (E.EMP_NO = W.WA_APER)
+				<if test="dataMap.dadcode!=null and !dataMap.dcode.equals('')">
+				WHERE B.DCODE = #{dataMap.dcode}
+				</if>
+				ORDER BY E.EMP_NO, A.OJ_NO
+	</select>
+	
+	<!-- 휴가신청에 따른 근무기록 삭제 -->
+	<update id="deleteWorkApToVac" parameterType="string">
+		UPDATE WK_AP
+		SET WA_DEL  = 'Y'
+		WHERE EW_REJRSN = #{vaapCode,jdbcType=VARCHAR}
+		AND	  WA_DEL IS NULL
+	</update>
+	
+	<!-- 한 사원의 특정날짜에 존재하는 근무기록 삭제 -->
+	<update id="updateWorkAp" parameterType="WkApVO">
+		UPDATE WK_AP
+		SET WA_DEL  = 'Y'
+		WHERE WA_APER = #{waAper,jdbcType=VARCHAR}
+		AND   WA_DATE = #{waDate,jdbcType=VARCHAR}
+		AND	  WA_DEL IS NULL
+		AND	  NOT EW_APST = '반려'
+	</update>
+	
+	<!-- 근무기록 추가 -->
+	<insert id="insertWorkAp" parameterType="WkApVO">
+		INSERT INTO WK_AP (
+		    WA_NO,		WK_CODE,		WA_APER,
+		    WA_APDATE,	WA_STIME,		WA_ETIME,
+		    EW_APST,	EW_ADATE,		WA_EXTIME,
+		    WA_NIGTIME,	WA_HDTIME,		WA_TLTIME,
+		    WA_DATE,	WA_RVER,		WA_ARSN,
+		    EW_REJRSN
+		) VALUES (
+		    WA_NO_SEQ.NEXTVAL,
+		    #{wkCode,jdbcType=VARCHAR},
+		    #{waAper,jdbcType=VARCHAR},
+		    SYSDATE,
+		    #{waStime,jdbcType=VARCHAR},
+		    #{waEtime,jdbcType=VARCHAR},
+		    #{ewApst,jdbcType=VARCHAR},
+		    #{ewAdate,jdbcType=VARCHAR},
+		    #{waExtime,jdbcType=VARCHAR},
+		    #{waNigtime,jdbcType=VARCHAR},
+		    #{waHdtime,jdbcType=VARCHAR},
+		    #{waTltime,jdbcType=VARCHAR},
+		    #{waDate,jdbcType=VARCHAR},
+		    #{waRver,jdbcType=VARCHAR},
+		    #{waArsn,jdbcType=VARCHAR},
+		    #{ewRejrsn,jdbcType=VARCHAR}
+		    
+		)
+	</insert>
+	
+	<!-- 근무기록 반려 -->
+	<update id="rejectWorkAp" parameterType="string">
+	UPDATE WK_AP
+		SET
+		    EW_APST = '반려'
+		    ,EW_ADATE = SYSDATE
+		WHERE
+		    WA_NO = #{waNo,jdbcType=VARCHAR}
+	</update>
+	
+	<!-- 근무기록 승인 -->
+	<update id="confirmWorkAp" parameterType="string">
+	UPDATE WK_AP
+		SET
+		    EW_APST = '승인'
+		    ,EW_ADATE = SYSDATE
+		WHERE
+		    WA_NO = #{waNo,jdbcType=VARCHAR}
+	</update>
+	
+	<!-- 휴가신청에 따른 근무기록 승인 -->
+	<update id="confirmWorkApToVac" parameterType="string">
+		UPDATE WK_AP
+		SET EW_APST = '승인'
+		    ,EW_ADATE = SYSDATE
+		WHERE EW_REJRSN = #{vaapCode,jdbcType=VARCHAR}
+		AND	  WA_DEL IS NULL
+	</update>
+	
+	<resultMap type="EmpVO" id="empWorkApExcelMap" autoMapping="true">
+		<id property="empNo" column="EMP_NO"/>
+		
+		<collection property="jobList" ofType="OwnJobVO" notNullColumn="OJ_NO" autoMapping="true">
+			<id property="ojNo" column="OJ_NO"/>
+		</collection>
+		
+		<collection property="deptList" ofType="BlgDeptVO" notNullColumn="BD_NO" autoMapping="true">
+			<id property="bdNo" column="BD_NO"/>
+		</collection>
+
+		<collection property="workApList" ofType="WkApVO" notNullColumn="WA_TLTIME" autoMapping="true">
+			<id property="waTltime" column="WA_TLTIME"/>
+		</collection>
+		
+	</resultMap>
+	
+	<!-- 사원 근무기록 시간 조회 -->
+	<select id="selectEmpWorkTimeList" resultMap="empWorkApExcelMap" parameterType="string">
+	 WITH MAX_ASGMT AS(
+	          SELECT MAX(ASGMT_NO) AS ASGMT_NO, ASGMT_PERS AS EMP_NO
+	          FROM ASGMT 
+	          WHERE ASGMT_PERS IN (SELECT EMP_NO FROM EMP)
+	           <![CDATA[
+	          AND ASGMT_DATE <= SYSDATE
+	          ]]>
+	    	  AND ASGMT_CCST IS NULL
+	          GROUP BY ASGMT_PERS
+	          
+	    ), ASGMT_VIEW AS(
+	    SELECT * 
+	    FROM ASGMT A INNER JOIN MAX_ASGMT C ON (A.ASGMT_NO = C.ASGMT_NO 
+	                                            AND A.ASGMT_PERS = C.EMP_NO)
+	                LEFT OUTER JOIN BLG_DEPT B  ON (C.EMP_NO = B.ASGMT_PERS 
+	                                                AND C.ASGMT_NO = B.ASGMT_NO)
+	                LEFT OUTER JOIN OWN_JOB O   ON (C.EMP_NO = O.ASGMT_PERS 
+	                                                AND C.ASGMT_NO = O.ASGMT_NO)
+	    ), WK_AP_VIEW AS(
+                SELECT WA_NO		, A.WK_CODE			, WK_NM
+                     , WA_APER		, TO_CHAR(WA_DATE, 'YYYY-MM-DD') "WA_DATE"
+                     , WA_STIME		, WA_ETIME			, EW_APST
+                     , WA_TLTIME	, WA_EXTIME			, WA_NIGTIME
+                     , WA_HDTIME
+                     
+                FROM WK_AP A LEFT OUTER JOIN WORK B ON ( A.WK_CODE = B.WK_CODE)
+                WHERE NOT EW_APST = '반려'
+                AND WA_DEL IS NULL
+                AND WA_DATE BETWEEN #{sDate,jdbcType=VARCHAR} AND #{eDate,jdbcType=VARCHAR}
+        )
+				SELECT 
+				        E.EMP_NM		, E.EMP_NO
+                        , E.EMP_MAIL    , E.ENT_DATE    , E.OUT_DATE
+                        , DE.DNM        , J.JNM			, A.BD_NO		
+                        , A.OJ_NO		, DU.DTNM 
+		                , NVL(SUM(W.WA_TLTIME),0) WA_TLTIME	
+                        , NVL(SUM(W.WA_EXTIME),0) WA_EXTIME	
+                        , NVL(SUM(W.WA_NIGTIME),0) WA_NIGTIME
+		                , NVL(SUM(W.WA_HDTIME),0) WA_HDTIME	
+		                
+				FROM EMP E LEFT OUTER JOIN ASGMT_VIEW A ON ( E.EMP_NO = A.EMP_NO)
+							LEFT OUTER JOIN JOB J ON (A.JCODE = J.JCODE)
+							LEFT OUTER JOIN DEPT DE ON ( A.DCODE = DE.DCODE)
+                            LEFT OUTER JOIN DUTY DU ON ( A.DTCODE = DU.DTCODE)
+		                    LEFT OUTER JOIN WK_AP_VIEW W ON (E.EMP_NO = W.WA_APER)
+                GROUP BY E.EMP_NM		, J.JNM			, E.EMP_NO
+                        , E.EMP_MAIL    , E.ENT_DATE    , E.OUT_DATE
+                        , DE.DNM   		, A.BD_NO		
+                        , A.OJ_NO		, DU.DTNM 
+                ORDER BY EMP_NO
+	</select>
+
+	<select id="selectSchedule" resultType="WkApVO" parameterType="EmpVO">
+		WITH MAX_ASGMT AS(
+	          SELECT MAX(ASGMT_NO) AS ASGMT_NO, ASGMT_PERS AS EMP_NO
+	          FROM ASGMT 
+	          WHERE ASGMT_PERS IN (SELECT EMP_NO FROM EMP)
+	           <![CDATA[
+	          AND ASGMT_DATE <= SYSDATE
+	          ]]>
+	    	  AND ASGMT_CCST IS NULL
+	          GROUP BY ASGMT_PERS
+	          
+	    ), ASGMT_VIEW AS(
+	    SELECT * 
+	    FROM ASGMT A INNER JOIN MAX_ASGMT C ON (A.ASGMT_NO = C.ASGMT_NO 
+	                                            AND A.ASGMT_PERS = C.EMP_NO)
+	                LEFT OUTER JOIN BLG_DEPT B  ON (C.EMP_NO = B.ASGMT_PERS 
+	                                                AND C.ASGMT_NO = B.ASGMT_NO)
+	                LEFT OUTER JOIN OWN_JOB O   ON (C.EMP_NO = O.ASGMT_PERS 
+	                                                AND C.ASGMT_NO = O.ASGMT_NO)
+	    ), WK_AP_VIEW AS(
+                SELECT WA_NO		, A.WK_CODE			, WK_NM
+                     , WA_APER		, TO_CHAR(WA_DATE, 'YYYY-MM-DD') "WA_DATE"
+                     , WA_STIME		, WK_SCD			, WA_ETIME
+                     
+                FROM WK_AP A LEFT OUTER JOIN WORK B ON ( A.WK_CODE = B.WK_CODE)
+                WHERE NOT EW_APST = '반려'
+                AND WA_DEL IS NULL
+                AND WK_SCD = 'Y'
+        )
+
+				SELECT DISTINCT
+				        E.EMP_NM		, E.EMP_NO 
+						, W.WA_NO		, W.WK_CODE 
+		                , W.WK_NM		, W.WA_DATE
+                        , W.WA_STIME	, E.EMP_IMG
+                        , W.WA_ETIME
+		                
+				FROM WK_AP_VIEW W LEFT OUTER JOIN  EMP E ON (E.EMP_NO = W.WA_APER)
+                             LEFT OUTER JOIN ASGMT_VIEW A ON ( E.EMP_NO = A.EMP_NO)
+							LEFT OUTER JOIN DEPT DE ON ( A.DCODE = DE.DCODE)
+			<choose>
+				<when test="deptList!=null and deptList.size!=0">
+				WHERE A.DCODE IN(
+					<foreach collection="deptList" item="item" separator=",">
+						#{item.dcode}
+					</foreach>
+				)
+				</when>
+				<otherwise>
+				WHERE E.EMP_NO = #{empNo}
+				</otherwise>
+			</choose>
+	</select>
+	
+	<select id="selectDaySchedule" resultType="WkApVO" parameterType="EmpVO">
+		WITH MAX_ASGMT AS(
+	          SELECT MAX(ASGMT_NO) AS ASGMT_NO, ASGMT_PERS AS EMP_NO
+	          FROM ASGMT 
+	          WHERE ASGMT_PERS IN (SELECT EMP_NO FROM EMP)
+	           <![CDATA[
+	          AND ASGMT_DATE <= SYSDATE
+	          ]]>
+	    	  AND ASGMT_CCST IS NULL
+	          GROUP BY ASGMT_PERS
+	          
+	    ), ASGMT_VIEW AS(
+	    SELECT * 
+	    FROM ASGMT A INNER JOIN MAX_ASGMT C ON (A.ASGMT_NO = C.ASGMT_NO 
+	                                            AND A.ASGMT_PERS = C.EMP_NO)
+	                LEFT OUTER JOIN BLG_DEPT B  ON (C.EMP_NO = B.ASGMT_PERS 
+	                                                AND C.ASGMT_NO = B.ASGMT_NO)
+	                LEFT OUTER JOIN OWN_JOB O   ON (C.EMP_NO = O.ASGMT_PERS 
+	                                                AND C.ASGMT_NO = O.ASGMT_NO)
+	    ), WK_AP_VIEW AS(
+                SELECT WA_NO		, A.WK_CODE			, WK_NM
+                     , WA_APER		, TO_CHAR(WA_DATE, 'YYYY-MM-DD') "WA_DATE"
+                     , WA_STIME		, WK_SCD			, WA_ETIME
+                     
+                FROM WK_AP A LEFT OUTER JOIN WORK B ON ( A.WK_CODE = B.WK_CODE)
+                WHERE NOT EW_APST = '반려'
+                AND WA_DEL IS NULL
+                AND WK_SCD = 'Y'
+        )
+
+				SELECT DISTINCT
+				        E.EMP_NM		, E.EMP_NO 
+						, W.WA_NO		, W.WK_CODE 
+		                , W.WK_NM		, W.WA_DATE
+                        , W.WA_STIME	, E.EMP_IMG
+                        , W.WA_ETIME
+		                
+				FROM WK_AP_VIEW W LEFT OUTER JOIN  EMP E ON (E.EMP_NO = W.WA_APER)
+                             LEFT OUTER JOIN ASGMT_VIEW A ON ( E.EMP_NO = A.EMP_NO)
+							LEFT OUTER JOIN DEPT DE ON ( A.DCODE = DE.DCODE)
+			<choose>
+				<when test="deptList!=null and deptList.size!=0">
+				WHERE A.DCODE IN(
+					<foreach collection="deptList" item="item" separator=",">
+						#{item.dcode}
+					</foreach>
+				)
+				</when>
+				<otherwise>
+				WHERE E.EMP_NO = #{empNo}
+				</otherwise>
+			</choose>
+			AND WA_DATE = #{entDate,jdbcType=VARCHAR}
+	</select>
+</mapper>

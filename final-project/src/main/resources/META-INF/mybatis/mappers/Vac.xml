@@ -1,0 +1,719 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.or.ddit.vacation.dao.VacationDAO">
+	
+	<sql id="selectFromVac">
+		SELECT
+		    VCLF_CODE,
+		    VC_CODE,
+		    VC_NM,
+		    VC_INFO,
+		    VC_GMTD,
+		    VC_GDAYS,
+		    VC_USEUNIT,
+		    VC_GEN,
+		    VC_WPAY,
+		    VC_CERT,
+		    VC_ACTIVE
+		FROM
+		    VAC
+	</sql>
+	
+	<sql id="selectVacApplyVo">
+		SELECT
+		    A.VAAP_CODE,
+		    A.VAAP_AP_EMP,
+		    A.VAAP_FILE_CNT,
+		    A.VAAP_DAYS,
+		    A.VAAP_RSN,
+		    A.VAAP_AP_ST,
+		    A.VAAP_AP_DATE,
+		    A.VAAP_REJ_RSN,
+		    A.VAAP_CC_ST,
+		    A.VAAP_CC_DATE,
+		    A.VAAP_EMP,
+		    A.VAAP_DATE,
+		    A.VC_CODE,
+		    B.VS_EACH_DATE,
+		    B.VS_STIME,
+		    B.VS_ETIME,
+		    B.VS_USE_DAYS,
+		    C.EMP_NO,
+		    C.EMP_NM,
+		    C.ENT_DATE,
+		    C.OUT_DATE,
+		    C.ENT_CASE,
+		    C.DHD,
+		    C.ENG_NM,
+		    C.EMP_MM,
+		    C.EMP_GEN,
+		    C.REGNO1,
+		    C.REGNO2,
+		    C.CP_NO,
+		    C.OFC_NO,
+		    C.EMP_ADDR,
+		    C.BS_WKTIME,
+		    C.EMP_CCST,
+		    C.EMP_MAIL,
+		    C.ACCT_NO,
+		    C.BANK,
+		    C.OWNER,
+		    C.EMP_IMG,
+		    D.VCLF_CODE,
+		    D.VC_CODE,
+		    D.VC_NM,
+		    D.VC_INFO,
+		    D.VC_GMTD,
+		    D.VC_GDAYS,
+		    D.VC_USEUNIT,
+		    D.VC_GEN,
+		    D.VC_WPAY,
+		    D.VC_CERT,
+		    D.VC_ACTIVE
+		FROM
+		    VAC_APPLY A
+		    LEFT OUTER JOIN
+		    VAC_SCH B
+		    ON(A.VAAP_CODE = B.VAAP_CODE)
+		    INNER JOIN
+            EMP C
+            ON(A.VAAP_EMP = C.EMP_NO)
+			INNER JOIN
+            VAC D
+            ON(A.VC_CODE = D.VC_CODE)
+	</sql>
+	
+	<sql id="selectVacPosnRank">
+		SELECT
+		    VP_CNG_CODE,
+		    EMP_NO,
+		    VCLF_CODE,
+		    VC_CODE,
+		    VAAP_CODE,
+		    VP_CNG_DATE,
+		    VP_CNG_CASE,
+		    VP_CNG_RSN,
+		    VP_ADD_DAYS,
+		    VP_SUB_DAYS,
+		    VP_DAYS,
+		    RANK() OVER (PARTITION BY VC_CODE ORDER BY TO_NUMBER(SUBSTR(VP_CNG_CODE, INSTR(VP_CNG_CODE, 'G')+1)) DESC) RANK
+		    FROM  
+		        VAC_POSN
+	</sql>
+	
+	<resultMap type="VacVO" id="vacMap" autoMapping="true">
+		<id property="vclfCode" column="VCLF_CODE"/> <!-- 기본키 역할을 해줘서 중복을 없애준다. -->
+		<collection property="annualVacAddGiveList" ofType="java.util.HashMap">
+			<result column="YEARS" property="years" jdbcType="NUMERIC"/>
+			<result column="ADD_DAYS" property="addDays" jdbcType="NUMERIC"/>
+		</collection>
+	</resultMap>
+	
+	<select id="selectVacList" resultMap="vacMap">
+		SELECT
+		    A.*,
+		    B.YEARS,
+		    B.VC_GDAYS - A.VC_GDAYS AS ADD_DAYS
+		FROM 
+		    (
+		        <include refid="selectFromVac"/> 
+		        WHERE 1=1 
+		        AND VCLF_CODE = VC_CODE
+		        AND VC_ACTIVE = 'Y'
+		    ) A 
+		    LEFT OUTER JOIN
+		    (
+		    SELECT 
+		        VCLF_CODE,
+		        VC_GDAYS,
+		        CASE SUBSTR(VC_CODE, 2, 1)
+		        WHEN '0' 
+		        THEN TO_NUMBER(SUBSTR(VC_CODE, 3, 1))
+		        ELSE TO_NUMBER(SUBSTR(VC_CODE, 2))
+		        END AS YEARS
+		    FROM 
+		        VAC
+		    WHERE 1=1 
+		    AND VCLF_CODE <![CDATA[<>]]> VC_CODE
+		    AND VC_ACTIVE = 'Y'
+		    ) B
+		ON
+		    (A.VCLF_CODE = B.VCLF_CODE)
+	</select>
+	
+	<select id="selectVacation" parameterType="string" resultType="VacVO">
+		<include refid="selectFromVac"/>
+		WHERE VC_NM = TRIM(#{VC_NM})
+	</select>
+	
+	<delete id="deleteAnnualLeaveVacAddGive">
+		UPDATE VAC
+		SET
+		    VC_ACTIVE = 'N'
+		WHERE 1=1
+			AND VC_CODE <![CDATA[<>]]> 'B'
+			AND VC_CODE LIKE 'B%'
+	</delete>
+	
+	<update id="insertAnnualLeaveVacAddGive" parameterType="java.util.Map">
+		<foreach collection="annualVacAddGiveList" item="yearsMap" index="idx" open="DECLARE BEGIN" separator=";" close="; END;">
+			UPDATE VAC
+			SET
+				VC_GDAYS = (SELECT VC_GDAYS FROM VAC WHERE VC_CODE = 'B') + #{yearsMap.years}
+			    , VC_ACTIVE = 'Y'
+			WHERE 1=1
+			<choose>
+				<when test="yearsMap.years lt 10">
+					AND VC_CODE = 'B' || 0 || #{yearsMap.years}			
+				</when>
+				<otherwise>
+					AND VC_CODE = 'B' || #{yearsMap.years}
+				</otherwise>
+			</choose>	
+		</foreach>
+	</update>
+	
+	<insert id="insertVacation" parameterType="VacVO">
+		<selectKey resultType="string" keyProperty="vclfCode" order="BEFORE">
+			SELECT CHR(ASCII(VCLF_CODE)+1) VCLF_CODE
+			FROM (SELECT ROWNUM RNUM, VCLF_CODE FROM VAC)
+			WHERE RNUM = (SELECT MAX(ROWNUM) FROM VAC)
+		</selectKey>
+		INSERT 
+			INTO VAC
+			(
+				VCLF_CODE
+			   	, VC_CODE
+			   	, VC_NM
+			   	, VC_INFO
+			   	, VC_GMTD
+			   	, VC_GDAYS
+			   	, VC_USEUNIT
+			   	, VC_GEN
+			   	, VC_WPAY
+			   	, VC_CERT
+			   	, VC_ACTIVE
+			)
+			VALUES
+				(
+					TRIM(#{vclfCode,jdbcType=VARCHAR})
+					, TRIM(#{vclfCode,jdbcType=VARCHAR})
+					, TRIM(#{vcNm,jdbcType=VARCHAR})
+					, TRIM(#{vcInfo,jdbcType=VARCHAR})
+					, TRIM(#{vcGmtd,jdbcType=VARCHAR})
+					, #{vcGdays,jdbcType=NUMERIC} 
+					, TRIM(#{vcUseunit,jdbcType=VARCHAR})
+					, TRIM(#{vcGen,jdbcType=VARCHAR})
+					, TRIM(#{vcWpay,jdbcType=VARCHAR})
+					, TRIM(#{vcCert,jdbcType=VARCHAR})
+					, 'Y'
+				)
+	</insert>
+	
+	<update id="updateVacation" parameterType="VacVO">
+		UPDATE VAC
+		SET
+			VC_NM = TRIM(#{vcNm,jdbcType=VARCHAR})
+			, VC_INFO = TRIM(#{vcInfo,jdbcType=VARCHAR})
+			, VC_GMTD = TRIM(#{vcGmtd,jdbcType=VARCHAR})
+			, VC_GDAYS = #{vcGdays,jdbcType=NUMERIC}
+			, VC_USEUNIT = TRIM(#{vcUseunit,jdbcType=VARCHAR})
+			, VC_GEN = TRIM(#{vcGen,jdbcType=VARCHAR})
+			, VC_WPAY = TRIM(#{vcWpay,jdbcType=VARCHAR})
+			, VC_CERT = TRIM(#{vcCert,jdbcType=VARCHAR})
+		WHERE
+			VC_CODE = TRIM(#{vcCode})
+	</update>
+	
+	<delete id="deleteVacation" parameterType="string">
+		UPDATE VAC
+		SET 
+			VC_ACTIVE = 'N'
+		WHERE VC_NM = TRIM(#{VC_NM})
+	</delete>
+	
+	<select id="selectNewEmpVacation" parameterType="string" resultType="VacVO">
+		<include refid="selectFromVac"/>
+		WHERE 
+		    1=1 
+		    AND VC_GMTD LIKE '%신청시%'
+		    AND VCLF_CODE = VC_CODE
+		    AND VC_GEN IN ('모두', (SELECT EMP_GEN FROM EMP WHERE EMP_NO = #{EMP_NO}))
+	</select>
+	
+	<insert id="insertNewEmpVacation" parameterType="VacPosnVO">
+		INSERT ALL
+		<foreach collection="vacList" item="vacVo" index="idx">
+			INTO 
+				VAC_POSN 
+				(
+				    VP_CNG_CODE
+				    ,EMP_NO
+				    ,VCLF_CODE
+				    ,VC_CODE
+				    ,VP_CNG_DATE
+				    ,VP_CNG_CASE
+				    ,VP_CNG_RSN
+				    ,VP_ADD_DAYS
+				    ,VP_DAYS
+				) 
+			VALUES 
+				(
+				    'VP' || #{empNo} || 'CNG' || (#{idx}+1)
+				    , #{empNo,jdbcType=VARCHAR}
+				    , #{vacVo.vclfCode,jdbcType=VARCHAR}
+				    , #{vacVo.vcCode,jdbcType=VARCHAR}
+				    , SYSDATE
+				    , #{vpCngCase,jdbcType=VARCHAR}
+				    , #{vpCngRsn,jdbcType=VARCHAR}
+				    , #{vacVo.vcGdays,jdbcType=NUMERIC}
+				    , #{vacVo.vcGdays,jdbcType=NUMERIC}
+				)
+		</foreach>
+		SELECT * FROM DUAL
+	</insert>
+	
+	<resultMap type="VacPosnVO" id="vacPosnVoList" autoMapping="true">
+		<id property="vpCngCode" column="VP_CNG_CODE"/>
+		<association property="vacVo" javaType="VacVO" autoMapping="true"/>
+	</resultMap>
+	
+	<select id="selectVacPosnVoList" parameterType="string" resultMap="vacPosnVoList">
+		SELECT
+		    A.VCLF_CODE,
+		    A.VC_CODE,
+		    A.VC_NM,
+		    A.VC_INFO,
+		    A.VC_GMTD,
+		    A.VC_GDAYS,
+		    A.VC_USEUNIT,
+		    A.VC_GEN,
+		    A.VC_WPAY,
+		    A.VC_CERT,
+		    A.VC_ACTIVE,
+		    B.VP_CNG_CODE,
+		    B.EMP_NO,
+		    B.VP_CNG_DATE,
+		    B.VP_CNG_CASE,
+		    B.VP_CNG_RSN,
+		    B.VP_ADD_DAYS,
+		    B.VP_SUB_DAYS,
+		    B.VP_DAYS,
+		    B.VAAP_CODE
+		FROM
+		    VAC A
+		    INNER JOIN 
+		    (
+		    	<include refid="selectVacPosnRank"/>
+		    	WHERE
+		    		EMP_NO = #{EMP_NO}
+		    ) B
+		    ON(A.VC_CODE = B.VC_CODE)
+		WHERE
+		    1=1
+		    AND B.RANK = 1
+		    AND B.VP_DAYS <![CDATA[<>]]> 0
+		ORDER BY 
+		    A.VCLF_CODE
+	</select>
+	
+	<resultMap type="VacApplyVO" id="vacApplyVoList" autoMapping="true">
+		<id property="vaapCode" column="VAAP_CODE"/>
+		<association property="empVo" javaType="EmpVO" autoMapping="true"/>
+		<association property="vacVo" javaType="VacVO" autoMapping="true"/>
+		<collection property="vacSchVoList" ofType="VacSchVO" autoMapping="true">
+			<id property="vsEachDate" column="VS_EACH_DATE"/>
+			<id property="vaapCode" column="VAAP_CODE"/>
+		</collection>
+	</resultMap>
+	
+	<select id="selectVacApplyVoListByEmpNo" parameterType="string" resultMap="vacApplyVoList">
+		<include refid="selectVacApplyVo"/>
+		WHERE
+		    VAAP_EMP = #{VAAP_EMP}
+		ORDER BY
+			A.VAAP_DATE
+			,B.VS_EACH_DATE
+	</select>
+	
+	<select id="selectLatestVpCngNo" parameterType="String" resultType="Integer">
+		SELECT MAX(TO_NUMBER(SUBSTR(VP_CNG_CODE, INSTR(VP_CNG_CODE, 'G')+1))) LATEST_CNG_NO 
+		FROM VAC_POSN 
+		WHERE EMP_NO = #{empNo,jdbcType=VARCHAR}
+	</select>
+	
+	<insert id="insertVacationPossession" parameterType="VacPosnVO">
+		<selectKey resultType="Double" keyProperty="latestVpDays" order="BEFORE">
+			SELECT
+    			VP_DAYS AS LATEST_VP_DAYS
+			FROM
+				(
+				<include refid="selectVacPosnRank"/>
+		    	WHERE
+		    		EMP_NO = #{empNo,jdbcType=VARCHAR}
+		    	)
+			WHERE 
+			    1=1
+			    AND VC_CODE = #{vcCode,jdbcType=VARCHAR}
+			    AND RANK = 1
+		</selectKey>
+		INSERT 
+			INTO VAC_POSN (
+				    VP_CNG_CODE
+				    ,EMP_NO
+				    ,VCLF_CODE
+				    ,VC_CODE
+				    ,VP_CNG_DATE
+				    ,VP_CNG_CASE
+				    ,VP_CNG_RSN
+				    <if test="vpAddDays neq null">
+				    ,VP_ADD_DAYS
+				    </if>
+				    <if test="vpSubDays neq null">
+				    ,VP_SUB_DAYS
+				    </if>
+				    ,VP_DAYS
+				    <if test="vaapCode neq null">
+				    ,VAAP_CODE
+				    </if>
+			) 
+			VALUES (
+				    #{vpCngCode,jdbcType=VARCHAR}
+				    , #{empNo,jdbcType=VARCHAR}
+				    , #{vclfCode,jdbcType=VARCHAR}
+				    , #{vcCode,jdbcType=VARCHAR}
+				    , SYSDATE
+				    , #{vpCngCase,jdbcType=VARCHAR}
+				    , #{vpCngRsn,jdbcType=VARCHAR}
+				    <if test="vpAddDays neq null">
+				    , #{vpAddDays,jdbcType=NUMERIC}
+				    </if>
+				    <if test="vpSubDays neq null">
+				    , #{vpSubDays,jdbcType=NUMERIC}
+				    </if>
+				    <choose>
+				    	<when test="latestVpDays eq null">
+						    , #{vpAddDays,jdbcType=NUMERIC} 
+				    	</when>
+				    	<otherwise>
+				    		<choose>
+				    			<when test="vpAddDays neq null">
+						    		, #{latestVpDays,jdbcType=NUMERIC} + #{vpAddDays,jdbcType=NUMERIC} 
+						    	</when>
+						    	<when test="vpSubDays neq null">
+						    		, #{latestVpDays,jdbcType=NUMERIC} - #{vpSubDays,jdbcType=NUMERIC}
+						    	</when>
+				    		</choose>
+				    	</otherwise>
+				    </choose>
+				    <if test="vaapCode neq null">
+				    , #{vaapCode,jdbcType=VARCHAR}
+				    </if>
+			)
+	</insert>
+	
+	<select id="selectLatestVaapNo" parameterType="String" resultType="Integer">
+		SELECT MAX(TO_NUMBER(SUBSTR(VAAP_CODE, INSTR(VAAP_CODE, 'P')+1))) LATEST_VAAP_NO 
+		FROM VAC_APPLY 
+		WHERE VAAP_EMP = #{vaapEmp,jdbcType=VARCHAR}
+	</select>
+	
+	<insert id="insertVacationApply" parameterType="VacApplyVO">
+		INSERT 
+			INTO 
+				VAC_APPLY 
+				(
+				    VC_CODE
+				    ,VAAP_CODE
+				    ,VAAP_DATE
+				    ,VAAP_EMP
+				    ,VAAP_AP_EMP
+				    ,VAAP_DAYS
+				    ,VAAP_RSN
+				) 
+			VALUES 
+				(
+				    #{vcCode,jdbcType=VARCHAR}
+				    ,#{vaapCode,jdbcType=VARCHAR}
+				    ,SYSDATE				    
+				    ,#{vaapEmp,jdbcType=VARCHAR}
+				    ,#{vaapApEmp,jdbcType=VARCHAR}
+				    ,#{vaapDays,jdbcType=VARCHAR}
+				    ,#{vaapRsn,jdbcType=VARCHAR}
+				)
+	</insert>
+
+	<insert id="insertVacationSchedule" parameterType="java.util.List">
+		INSERT ALL
+		<foreach collection="list" item="vacSchVo">
+	    	INTO 
+				VAC_SCH
+				(
+					VS_EACH_DATE
+					,VAAP_CODE
+					,VS_STIME
+					,VS_ETIME
+					,VS_USE_DAYS
+				)
+			VALUES
+				(
+					TO_DATE(#{vacSchVo.vsEachDate}, 'YY/MM/DD')
+					,#{vacSchVo.vaapCode,jdbcType=VARCHAR}
+					,#{vacSchVo.vsStime,jdbcType=VARCHAR}
+					,#{vacSchVo.vsEtime,jdbcType=VARCHAR}
+					,#{vacSchVo.vsUseDays,jdbcType=NUMERIC}
+				)
+	   	</foreach>
+	   SELECT * FROM DUAL
+	</insert>
+
+	<update id="updateVacApplyCcSt" parameterType="string">
+		UPDATE
+			VAC_APPLY
+		SET
+			VAAP_CC_ST = 'Y'
+			,VAAP_CC_DATE = SYSDATE
+		WHERE
+			VAAP_CODE = #{VAAP_CODE}
+	</update>
+
+	<select id="selectVacPosnByVaapCode" parameterType="string" resultType="VacPosnVO">
+		SELECT
+		    VP_CNG_DATE
+		  	,EMP_NO
+		  	,VCLF_CODE
+		  	,VC_CODE
+		  	,VP_CNG_CASE
+		  	,VP_CNG_RSN
+		  	,VP_ADD_DAYS
+		  	,VP_SUB_DAYS
+		  	,VAAP_CODE
+		FROM
+		    VAC_POSN
+		WHERE
+			VAAP_CODE = #{VAAP_CODE}
+	</select>
+
+	<update id="updateVaapFileCnt" parameterType="string">
+		UPDATE
+			VAC_APPLY
+		SET
+			VAAP_FILE_CNT = 1
+		WHERE
+			VAAP_CODE = #{VAAP_CODE}
+	</update>
+	
+	<select id="selectVacPosnListByMap" parameterType="java.util.Map" resultType="VacPosnVO">
+		SELECT
+		    VP_CNG_DATE,
+		    EMP_NO,
+		    VCLF_CODE,
+		    VC_CODE,
+		    VP_CNG_CASE,
+		    VP_CNG_RSN,
+		    VP_ADD_DAYS,
+		    VP_SUB_DAYS,
+		    VP_DAYS,
+		    VP_CNG_CODE,
+		    VAAP_CODE
+		FROM
+		    VAC_POSN
+		WHERE
+		    1=1
+		    AND EMP_NO = #{empNo,jdbcType=VARCHAR}
+		    AND EXTRACT(YEAR FROM VP_CNG_DATE) = #{year,jdbcType=NUMERIC}
+		    AND VCLF_CODE IN ('A', 'B')
+		ORDER BY
+			VCLF_CODE,
+		    VP_CNG_DATE
+	</select>
+	
+	<select id="selectAllVacation" resultType="VacVO">
+		<include refid="selectFromVac"/>
+		WHERE
+		    VCLF_CODE = VC_CODE
+		ORDER BY
+		    VCLF_CODE
+	</select>
+	
+	<resultMap type="EmpVO" id="empList" autoMapping="true">
+		<id property="empNo" column="EMP_NO"/>
+		<collection property="vacPosnList" ofType="VacPosnVO" notNullColumn="VCLF_CODE" autoMapping="true">
+			<id property="vcCode" column="VC_CODE"/>
+		</collection>
+	</resultMap>
+	
+	<select id="selectVacPosnStat" parameterType="PagingVO" resultMap="empList">
+		WITH 
+		    MAX_ASGMT 
+		    AS(
+		        SELECT MAX(ASGMT_NO) AS ASGMT_NO, ASGMT_PERS AS EMP_NO
+		        FROM ASGMT 
+		        WHERE ASGMT_PERS IN (SELECT EMP_NO FROM EMP)
+		        AND ASGMT_DATE <![CDATA[<=]]> SYSDATE
+		        AND ASGMT_CCST IS NULL
+		        GROUP BY ASGMT_PERS
+		    ), 
+		    ASGMT_VIEW 
+		    AS(
+		        SELECT 
+		            * 
+		        FROM 
+		            ASGMT A INNER JOIN MAX_ASGMT B ON (A.ASGMT_NO = B.ASGMT_NO AND A.ASGMT_PERS = B.EMP_NO)
+		            LEFT OUTER JOIN BLG_DEPT C  ON (B.EMP_NO = C.ASGMT_PERS AND B.ASGMT_NO = C.ASGMT_NO)
+		    ),
+		    VAC_POSN_VIEW
+		    AS(
+		        SELECT
+		            VP_CNG_CODE,
+		            EMP_NO,
+		            VCLF_CODE,
+		            VC_CODE,
+		            VAAP_CODE,
+		            VP_CNG_DATE,
+		            VP_CNG_CASE,
+		            VP_CNG_RSN,
+		            VP_ADD_DAYS,
+		            VP_SUB_DAYS,
+		            VP_DAYS
+		        FROM
+		            VAC_POSN_RANK_VIEW
+		        WHERE
+		            RANK = 1
+		    )
+		    SELECT *
+			FROM(
+				SELECT E.* , DENSE_RANK() OVER (ORDER BY E.EMP_NO DESC) AS RNUM
+				FROM(
+				    SELECT 
+				    	A.EMP_NO
+				        , A.EMP_NM       
+				        , B.DCODE 
+				        , D.VCLF_CODE
+				        , D.VC_CODE
+				        , D.VP_DAYS
+				    FROM 
+				        EMP A LEFT OUTER JOIN ASGMT_VIEW B ON (A.EMP_NO = B.EMP_NO)
+				        LEFT OUTER JOIN DEPT C ON (B.DCODE = C.DCODE)
+				        LEFT OUTER JOIN VAC_POSN_VIEW D ON (A.EMP_NO = D.EMP_NO)
+				    WHERE
+				        1=1
+						<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(dataMap.empNm)">
+							AND A.EMP_NM LIKE '%' || #{dataMap.empNm,jdbcType=VARCHAR} || '%'			
+						</if>
+						<if test="!@org.springframework.util.CollectionUtils@isEmpty(dataMap.deptList)">
+							<foreach collection="dataMap.deptList" item="dCode" open="AND B.DCODE IN (" separator="," close=")">
+								#{dCode,jdbcType=VARCHAR}
+							</foreach>	
+						</if>
+						<if test="!@org.springframework.util.CollectionUtils@isEmpty(dataMap.vacList)">
+							<foreach collection="dataMap.vacList" item="vclfCode" open="AND D.VCLF_CODE IN (" separator="," close=")">
+								#{vclfCode,jdbcType=VARCHAR}
+							</foreach>	
+						</if>
+				    ORDER BY 
+				        EMP_NO
+				        , MAINCK DESC
+				) E
+		) F
+		<![CDATA[
+		WHERE RNUM >= #{startRow} AND RNUM <= #{endRow}
+		]]>
+	</select>
+	<select id="selectVacPosnStatTotalRecord" resultType="int" parameterType="PagingVO">
+		WITH 
+		    MAX_ASGMT 
+		    AS(
+		        SELECT MAX(ASGMT_NO) AS ASGMT_NO, ASGMT_PERS AS EMP_NO
+		        FROM ASGMT 
+		        WHERE ASGMT_PERS IN (SELECT EMP_NO FROM EMP)
+		        AND ASGMT_DATE <![CDATA[<=]]> SYSDATE
+		        AND ASGMT_CCST IS NULL
+		        GROUP BY ASGMT_PERS
+		    ), 
+		    ASGMT_VIEW 
+		    AS(
+		        SELECT 
+		            * 
+		        FROM 
+		            ASGMT A INNER JOIN MAX_ASGMT B ON (A.ASGMT_NO = B.ASGMT_NO AND A.ASGMT_PERS = B.EMP_NO)
+		            LEFT OUTER JOIN BLG_DEPT C  ON (B.EMP_NO = C.ASGMT_PERS AND B.ASGMT_NO = C.ASGMT_NO)
+		    ),
+			    VAC_POSN_VIEW
+			    AS(
+			        SELECT
+			            VP_CNG_CODE,
+			            EMP_NO,
+			            VCLF_CODE,
+			            VC_CODE,
+			            VAAP_CODE,
+			            VP_CNG_DATE,
+			            VP_CNG_CASE,
+			            VP_CNG_RSN,
+			            VP_ADD_DAYS,
+			            VP_SUB_DAYS,
+			            VP_DAYS
+			        FROM
+			            VAC_POSN_RANK_VIEW
+			        WHERE
+			            RANK = 1
+			    )
+				    SELECT 
+				    	COUNT(DISTINCT A.EMP_NO)
+				    FROM 
+				        EMP A LEFT OUTER JOIN ASGMT_VIEW B ON (A.EMP_NO = B.EMP_NO)
+				        LEFT OUTER JOIN DEPT C ON (B.DCODE = C.DCODE)
+				        LEFT OUTER JOIN VAC_POSN_VIEW D ON (A.EMP_NO = D.EMP_NO)
+				    WHERE
+				        1=1
+						<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(dataMap.empNm)">
+							AND A.EMP_NM LIKE '%' || #{dataMap.empNm,jdbcType=VARCHAR} || '%'			
+						</if>
+						<if test="!@org.springframework.util.CollectionUtils@isEmpty(dataMap.deptList)">
+							<foreach collection="dataMap.deptList" item="dCode" open="AND B.DCODE IN (" separator="," close=")">
+								#{dCode,jdbcType=VARCHAR}
+							</foreach>	
+						</if>
+						<if test="!@org.springframework.util.CollectionUtils@isEmpty(dataMap.vacList)">
+							<foreach collection="dataMap.vacList" item="vclfCode" open="AND D.VCLF_CODE IN (" separator="," close=")">
+								#{vclfCode,jdbcType=VARCHAR}
+							</foreach>	
+						</if>
+				    ORDER BY 
+				        EMP_NO
+				        , MAINCK DESC
+	</select>
+	
+	<select id="selectVacApplyVoListByDate" parameterType="java.util.Map" resultMap="vacApplyVoList">
+		<include refid="selectVacApplyVo"/>
+		WHERE
+			1=1
+			AND EXTRACT(YEAR FROM A.VAAP_DATE) = #{year,jdbcType=NUMERIC}
+			AND EXTRACT(MONTH FROM A.VAAP_DATE) = #{month,jdbcType=NUMERIC}
+		ORDER BY
+			A.VAAP_DATE,
+			B.VS_EACH_DATE
+	</select>
+	
+	<update id="updateVacApplyApSt" parameterType="java.util.Map">
+		UPDATE
+			VAC_APPLY
+		SET
+			VAAP_AP_DATE = SYSDATE
+			<if test="behavior eq 'reject'">
+				,VAAP_AP_ST = '반려'
+			</if>
+			<if test="behavior eq 'approve'">
+				,VAAP_AP_ST = '승인'
+			</if>
+		WHERE
+			VAAP_CODE = #{vaapCode,jdbcType=VARCHAR}
+	</update>
+	
+	<select id="selectVacApplyVoByVaapCode" parameterType="string" resultMap="vacApplyVoList">
+		<include refid="selectVacApplyVo"/>
+		WHERE
+			A.VAAP_CODE = #{vaapCode,jdbcType=VARCHAR}
+	</select>
+	
+</mapper>

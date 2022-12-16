@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.or.ddit.emp.dao.OthersDAO">
+	<select id="selectDeptList" resultType="DeptVO">
+		SELECT DCODE
+			 , DNM 
+		FROM DEPT
+		WHERE DELYN = 'N'
+	</select>
+	
+	<!-- 근로유형구분 -->
+	<select id="LaborCaseList" resultType="CmcodeVO">
+		SELECT  CM_CODE,
+		        CODE_NM
+		
+		FROM CMCODE
+		
+		START WITH PARENT_CD = 'J01'
+		
+		CONNECT BY PRIOR CM_CODE = PARENT_CD
+	</select>
+	
+	<!-- 소득구분 -->
+	<select id="incomeCaseList" resultType="CmcodeVO">
+		SELECT  CM_CODE,
+		        CODE_NM
+		FROM CMCODE
+		START WITH PARENT_CD = 'I01'
+		CONNECT BY PRIOR CM_CODE = PARENT_CD
+	</select>
+
+	<select id="selectDutyList" resultType="DutyVO">
+		SELECT DTCODE
+		     , DTNM
+		FROM DUTY
+		WHERE DELYN = 'N'
+	</select>
+	
+	<select id="selectJobList" resultType="JobVO">
+		SELECT JCODE
+		     , JNM
+		FROM JOB
+		WHERE DELYN = 'N'
+	</select>
+	
+	<select id="selectPstnList" resultType="PstnVO">
+		SELECT PTN_CODE
+	     , PTN_NM
+		FROM PSTN
+		WHERE DELYN = 'N'
+	</select>
+	
+	<select id="selectGrdList" resultType="GrdVO">
+		SELECT GRD_CODE
+		     , GRD_NM
+		FROM GRD
+		WHERE DELYN = 'N'
+	</select>
+	
+	<!--담당직무들 추가 -->
+	<insert id="insertOwnJob" parameterType="AsgmtVO">
+		INSERT INTO OWN_JOB (
+		      OJ_NO
+		    , ASGMT_NO
+		    , JCODE
+		    , ASGMT_PERS
+		)
+		SELECT OWN_JOB_SEQ.NEXTVAL, A.* from(
+		<foreach item="item" collection="jobList" separator="UNION ALL ">
+			SELECT 
+				 #{item.asgmtNo, jdbcType=INTEGER}
+				, #{item.jcode, jdbcType=VARCHAR}
+				, #{item.asgmtPers, jdbcType=VARCHAR}
+			FROM DUAL
+		</foreach>
+		) A
+	</insert>
+	
+	<!-- 담당부서직책들 추가 -->
+	<insert id="insertBlgDept" parameterType="AsgmtVO">
+		INSERT INTO BLG_DEPT (
+		    BD_NO
+		    , ASGMT_NO
+		    , DCODE
+		    , DTCODE
+		    , MAINCK
+		    , ASGMT_PERS
+		)
+		SELECT BLG_DEPT_SEQ.NEXTVAL, A.* from(
+		<foreach item="item" collection="deptList" separator="UNION ALL ">
+			SELECT 
+				 #{item.asgmtNo, jdbcType=VARCHAR}
+				, #{item.dcode, jdbcType=VARCHAR}
+				, #{item.dtcode, jdbcType=VARCHAR}
+				, #{item.mainck, jdbcType=VARCHAR}
+				, #{item.asgmtPers, jdbcType=VARCHAR}
+			FROM DUAL
+		</foreach>
+		) A
+	</insert>
+
+</mapper>

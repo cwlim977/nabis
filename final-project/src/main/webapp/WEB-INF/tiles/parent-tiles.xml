@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE tiles-definitions PUBLIC "-//Apache Software Foundation//DTD Tiles Configuration 3.0//EN" "http://tiles.apache.org/dtds/tiles-config_3_0.dtd" >
+<tiles-definitions>
+	
+	<definition name="parent" template="/WEB-INF/views/template.jsp">
+		<put-attribute name="title" value="NABIS" />
+		<put-attribute name="preScript" value="/includee/preScript.jsp" />
+		<put-attribute name="headerMenu" value="/includee/headerMenu.jsp" />
+		<put-attribute name="leftMenu" value="/includee/leftMenu.jsp" />
+		<put-attribute name="footer" value="/includee/footer.jsp" />
+		<put-attribute name="postScript" value="/includee/postScript.jsp" />
+	</definition>
+	
+	<definition name="home" extends="parent">
+    	<put-attribute name="main" value="/WEB-INF/views/home.jsp" />
+  	</definition>
+	
+	<definition name="setting/*" extends="parent">
+	  	<put-attribute name="headerMenu" value="/includee/settingHeaderMenu.jsp" />
+	  	<put-attribute name="main" value="/WEB-INF/views/setting/{1}.jsp"/>
+ 	</definition>
+</tiles-definitions>

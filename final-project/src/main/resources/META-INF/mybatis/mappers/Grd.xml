@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.or.ddit.grd.dao.GrdDAO">
+
+	<select id="selectGrdList" resultType="GrdVO" >
+		SELECT GRD_CODE,
+				GRD_NM
+		FROM GRD
+		WHERE DELYN = 'N'
+		ORDER BY GRD_CODE
+	</select>
+	
+	<update id="updateGrd" parameterType="GrdVO">
+		UPDATE GRD
+		SET
+			GRD_NM = #{grdNm,jdbcType=VARCHAR}
+			
+		WHERE GRD_CODE = #{grdCode,jdbcType=VARCHAR}	
+	</update>
+	
+	<insert id="insertGrd" parameterType="GrdVO">
+	INSERT INTO GRD (         
+		    GRD_CODE
+			, GRD_NM
+			, DELYN
+		) VALUES (               
+				'GR' || GRD_SEQ.NEXTVAL
+				, #{grdNm,jdbcType=VARCHAR}
+				, 'N'
+			)						 
+	</insert>
+	
+	<delete id="deleteGrd" parameterType="String">
+		UPDATE GRD
+		SET
+			DELYN = 'Y'
+		WHERE GRD_CODE = #{grdCode,jdbcType=VARCHAR}
+	</delete>
+	
+	<select id="selectMaxGrdCode" resultType="String">
+		SELECT 
+			SUBSTR( MAX(GRD_CODE), 3 )
+		FROM GRD
+	</select>
+</mapper>

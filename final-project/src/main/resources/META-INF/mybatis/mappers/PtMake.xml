@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.or.ddit.pay.dao.PtMakeDAO">
+	<insert id="insertPtMake" parameterType="PtMakeVO">
+		INSERT INTO PTMAKE(
+		         PTM_NO
+		       , PT_NO
+		       , DD_CODE
+		       , PDD_AMT
+		       , PY_CODE
+		       , PPY_AMT
+		) VALUES (
+   			     PTMAKE_SEQ.NEXTVAL
+    	       , #{ptNo,jdbcType=VARCHAR}
+    	       , #{ddCode,jdbcType=VARCHAR}
+    	       , #{pddAmt,jdbcType=NUMERIC}
+    	       , #{pyCode,jdbcType=VARCHAR}
+    	       , #{ppyAmt,jdbcType=NUMERIC}
+		)
+	</insert>
+	
+<!-- 	<delete id="deletePtMake" parameterType="string"> -->
+<!-- 		DELETE FROM PTMAKE -->
+<!-- 		 WHERE PT_NO = #{ptNo,jdbcType=VARCHAR} -->
+<!-- 	</delete> -->
+
+	<delete id="deletePtMake" parameterType="PtMakeVO">
+		DELETE FROM PTMAKE
+		WHERE PT_NO = #{ptNo,jdbcType=VARCHAR}
+		<if test="pyCode!=null">
+			AND PY_CODE LIKE #{pyCode,jdbcType=VARCHAR}
+		</if>
+		<if test="ddCode!=null">
+			AND DD_CODE LIKE #{ddCode,jdbcType=VARCHAR}
+		</if>
+	</delete>
+
+	
+	<select id="selectPtMakeList" parameterType="string" resultType="PtMakeVO">
+		SELECT 
+				PT_NO 
+ 			  , PTM_NO
+		      , DD_CODE
+		      , PDD_AMT
+		      , PY_CODE
+		      , PPY_AMT
+		FROM    PTMAKE
+	    WHERE   PT_NO = #{ptNo,jdbcType=VARCHAR}
+	</select>
+</mapper>

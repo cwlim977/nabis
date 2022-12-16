@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.or.ddit.pstn.dao.PstnDAO">
+
+	<select id="selectPstnList" resultType="PstnVO" >
+		SELECT PTN_CODE,
+				PTN_NM
+		FROM PSTN
+		WHERE DELYN = 'N'
+		ORDER BY LVL
+	</select>
+	
+	<update id="updatePstn" parameterType="PstnVO">
+		UPDATE PSTN
+		SET
+			PTN_NM = #{ptnNm,jdbcType=VARCHAR}
+			
+		WHERE PTN_CODE = #{ptnCode,jdbcType=VARCHAR}	
+	</update>
+	
+	<insert id="insertPstn" parameterType="PstnVO">
+	INSERT INTO PSTN (         
+		    PTN_CODE
+			, PTN_NM
+			, DELYN
+		) VALUES (               
+				'PTN0' || PSTN_SEQ.NEXTVAL
+				, #{ptnNm,jdbcType=VARCHAR}
+				, 'N'
+			)						 
+	</insert>
+	
+	<delete id="deletePstn" parameterType="String">
+		UPDATE PSTN
+		SET
+			DELYN = 'Y'
+		WHERE PTN_CODE = #{ptnCode,jdbcType=VARCHAR}
+	</delete>
+	
+	<select id="selectMaxPtnCode" resultType="String">
+		SELECT 
+			SUBSTR( MAX(PTN_CODE), 5 )
+		FROM PSTN
+	</select>
+</mapper>

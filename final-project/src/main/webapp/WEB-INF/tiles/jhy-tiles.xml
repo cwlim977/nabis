@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE tiles-definitions PUBLIC "-//Apache Software Foundation//DTD Tiles Configuration 3.0//EN" "http://tiles.apache.org/dtds/tiles-config_3_0.dtd" >
+<tiles-definitions>
+	
+	<definition name="parent" template="/WEB-INF/views/template.jsp">
+		<put-attribute name="title" value="NABIS" />
+		<put-attribute name="preScript" value="/includee/preScript.jsp" />
+		<put-attribute name="headerMenu" value="/includee/headerMenu.jsp" />
+		<put-attribute name="leftMenu" value="/includee/leftMenu.jsp" />
+		<put-attribute name="footer" value="/includee/footer.jsp" />
+		<put-attribute name="postScript" value="/includee/postScript.jsp" />
+	</definition>
+
+  <definition name="home" extends="parent">
+    <put-attribute name="main" value="/WEB-INF/views/home.jsp" />
+  </definition>
+
+  
+
+    <definition name="empManager/empTransferList" extends="parent" preparer="kr.or.ddit.emp.view.empTransferListPreparer">  	
+    <put-attribute name="headerMenu" value="/includee/transferHeaderMenu.jsp" />	
+  	<put-attribute name="main" value="/WEB-INF/views/empManager/empTransferList.jsp" />
+  </definition>
+  
+    <definition name="mypage/*" extends="parent" >  	
+  	<put-attribute name="headerMenu" value="/includee/mypageHeaderMenu.jsp" />
+  	<put-attribute name="main" value="/WEB-INF/views/mypage/{1}.jsp" />
+  </definition>
+  
+ <!--    <definition name="empManager/cntStatusList" extends="parent" preparer="kr.or.ddit.emp.view.empListPreparer">  	
+  	<put-attribute name="main" value="/WEB-INF/views/empManager/cntStatusList.jsp" />
+  </definition> -->
+  
+    <definition name="empManager/*" extends="parent" preparer="kr.or.ddit.emp.view.empListPreparer">  	
+  	<put-attribute name="headerMenu" value="/includee/empHeaderMenu.jsp" />
+  	<put-attribute name="main" value="/WEB-INF/views/empManager/{1}.jsp" />
+  </definition>
+  
+  
+
+  
+  
+  
+</tiles-definitions>

@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.or.ddit.dept.dao.DeptDAO">
+
+	<select id="selectDeptList" resultType="DeptVO" >
+		SELECT LEVEL,
+<!-- 	       LPAD(' ', 2*(LEVEL-1)) || DNM AS "DNM",  -->
+<!-- 	       DNO,  -->
+<!-- 	       DABST, -->
+		   DNM,
+	       DCODE, 
+	       UPR_DCODE
+	
+		FROM DEPT
+		WHERE DELYN = 'N'
+		
+		START WITH UPR_DCODE IS NULL
+		
+		CONNECT BY PRIOR DCODE = UPR_DCODE
+	</select>
+
+	<update id="updateDept" parameterType="DeptVO">
+		UPDATE DEPT
+		SET
+			UPR_DCODE =	#{uprDcode,jdbcType=VARCHAR}
+			, DNM = #{dnm,jdbcType=VARCHAR}
+			
+		WHERE DCODE = #{dcode,jdbcType=VARCHAR}	
+	</update>
+	
+		<insert id="insertDept" parameterType="DeptVO">
+		INSERT INTO DEPT (         
+			    DCODE
+				, UPR_DCODE
+				, DNM
+				, DELYN
+<!-- 				, DNO -->
+<!-- 				, DABST -->
+			) VALUES (               
+<!-- 					#{dcode,jdbcType=VARCHAR} -->
+					'D0' || DEPT_SEQ.NEXTVAL
+					, #{uprDcode,jdbcType=VARCHAR}
+					, #{dnm,jdbcType=VARCHAR}
+					, 'N'
+<!-- 					, #{dno,jdbcType=VARCHAR} -->
+<!-- 					, #{dabst,jdbcType=VARCHAR} -->
+			)						 
+	</insert>
+	
+	<delete id="deleteDept" parameterType="String">
+		UPDATE DEPT
+		SET
+			DELYN = 'Y'
+		WHERE DCODE = #{dcode,jdbcType=VARCHAR}
+	</delete>
+	
+	<select id="selectMaxDcode" resultType="String">
+		SELECT 
+			SUBSTR( MAX(DCODE), 3 )
+		FROM DEPT
+	</select>
+	
+	<update id="updateDeptHead" parameterType="DeptVO">
+		UPDATE DEPT
+		    SET
+		        DHNO = #{dhno, jdbcType=VARCHAR}
+		WHERE
+		    DCODE = #{dcode, jdbcType=VARCHAR}
+	</update>
+	
+	<update id="resetDeptHead" parameterType="string">
+		UPDATE DEPT
+		    SET
+		        DHNO = null
+		WHERE
+		    DHNO = #{empNo, jdbcType=VARCHAR}
+	</update>
+	
+	<select id="selectDept" resultType="DeptVO" parameterType="string">
+		   SELECT
+			    DCODE,
+			    DNM,
+			    DHNO,
+			    DELYN
+			FROM
+			    DEPT
+			WHERE DCODE = #{dcode, jdbcType=VARCHAR}
+	</select>
+	
+	<select id="checkDeptHead" resultType="int" parameterType="string">
+		SELECT
+		    COUNT(*)
+		FROM DEPT
+		WHERE DHNO= #{empNo, jdbcType=VARCHAR}
+	</select>
+</mapper>
+
+
+
+
+
+
+
+
+
+
+

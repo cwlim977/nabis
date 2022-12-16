@@ -1,0 +1,366 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.or.ddit.insight.dao.InsightDAO">
+
+
+
+<!-- 사원별 오늘기준 계약유형 조회 -->
+	<select id="cntCaseList" resultType="CnthxVO">
+		WITH CNTHX_MAX AS(
+		    SELECT MAX(CNTHX_NO) AS CNTHX_NO,
+		            CNT_CNGR
+		    FROM CNTHX
+		    <![CDATA[ 
+		    WHERE BLCT_SDATE <= SYSDATE
+		    AND BLCT_EDATE >= SYSDATE
+		    ]]>
+		    GROUP BY CNT_CNGR
+		)
+		SELECT  
+		        COUNT(A.CNT_CNGR) AS "BFEX",
+		        A.BL_CASE
+		FROM CNTHX A INNER JOIN CNTHX_MAX B
+		ON A.CNTHX_NO = B.CNTHX_NO
+		GROUP BY A.BL_CASE
+	</select>	
+
+
+<!-- 수습완료비율을 선택한 일자에 따라 조회 -->
+	<select id="prEndRate" resultType="String">
+		WITH ATAB AS(
+		    SELECT  COUNT(*) AS ACNT
+		    FROM CNTHX
+		    WHERE PR_EDATE IS NOT NULL
+		    <choose>
+			    <when test="@org.apache.commons.lang3.StringUtils@isBlank(prSdate) and @org.apache.commons.lang3.StringUtils@isBlank(prEdate)">
+		    		AND BLCT_EDATE >= SYSDATE
+			    </when>
+			    <otherwise>
+		    		AND BLCT_EDATE BETWEEN #{prSdate, jdbcType=DATE} AND #{prEdate, jdbcType=DATE}
+			    </otherwise> 
+		    </choose> 
+		), BTAB AS(
+		    SELECT  COUNT(*) AS BCNT
+		    FROM CNTHX
+		    <![CDATA[
+		    WHERE PR_EDATE >= BLCT_EDATE 
+		    AND PR_EDATE IS NOT NULL
+			]]>
+		    <choose>
+			    <when test="@org.apache.commons.lang3.StringUtils@isBlank(prSdate) and @org.apache.commons.lang3.StringUtils@isBlank(prEdate)">
+		    		AND BLCT_EDATE >= SYSDATE
+			    </when>
+			    <otherwise>
+		    		AND BLCT_EDATE BETWEEN #{prSdate, jdbcType=DATE} AND #{prEdate, jdbcType=DATE}
+			    </otherwise> 
+		    </choose>
+		)	
+		SELECT 
+	        CASE 
+               WHEN ACNT !='0' THEN ROUND((ACNT-BCNT) / ACNT * 100,2) || '%' 
+               ELSE '0' || '%'
+            END AS RATIO
+		FROM ATAB, BTAB
+	</select>
+	
+	
+<!-- 퇴직률(이직률)을 선택한 연도에 따라 조회 -->
+	<select id="outRateRetrieve" resultType="String">
+		WITH AOUT AS(
+		    SELECT COUNT(*) AS ACNT
+		    FROM EMP
+		    <choose>
+			    <when test="@org.apache.commons.lang3.StringUtils@isBlank(outDate) and @org.apache.commons.lang3.StringUtils@isBlank(outDate)">
+		    		WHERE ENT_DATE BETWEEN TO_CHAR(SYSDATE,'YYYY')||'-01-01' AND TO_CHAR(SYSDATE,'YYYY')||'-12-31'
+			    </when>
+			    <otherwise>
+				    WHERE ENT_DATE BETWEEN #{outDate, jdbcType=DATE}||'-01-01' AND #{outDate, jdbcType=DATE}||'-12-31'
+			    </otherwise>
+			</choose>
+		), BOUT AS(
+		    SELECT COUNT(*) AS BCNT
+		    FROM EMP
+			<choose>
+			    <when test="@org.apache.commons.lang3.StringUtils@isBlank(outDate) and @org.apache.commons.lang3.StringUtils@isBlank(outDate)">
+		    		WHERE OUT_DATE BETWEEN TO_CHAR(SYSDATE,'YYYY')||'-01-01' AND TO_CHAR(SYSDATE,'YYYY')||'-12-31'
+			    </when>
+			    <otherwise>
+				    WHERE OUT_DATE BETWEEN #{outDate, jdbcType=DATE}||'-01-01' AND #{outDate, jdbcType=DATE}||'-12-31'
+			    </otherwise>
+			</choose>
+		)
+		SELECT CASE 
+		            WHEN ACNT !='0' THEN ROUND(BCNT / ACNT * 100,2) || '%' 
+		            ELSE '0' || '%'
+		       END AS RATIO
+		FROM AOUT, BOUT
+	</select>
+	
+<!-- 현재 재직중인 구성원의 성비를 조회 -->
+	<select id="sexRatioRetrieve" resultType="hashmap" >
+		WITH ATAB AS(
+		    SELECT COUNT(EMP_GEN) AS MAL_CNT
+		    FROM EMP
+		    WHERE (EMP_GEN = '남성' OR EMP_GEN = '남자')
+		    AND OUT_DATE IS NULL
+		), BTAB AS(
+		    SELECT COUNT(EMP_GEN) AS FEM_CNT
+		    FROM EMP
+		    WHERE (EMP_GEN = '여성' OR EMP_GEN = '여자')
+		    AND OUT_DATE IS NULL
+		)
+		SELECT ROUND(MAL_CNT /(MAL_CNT + FEM_CNT) * 100,2) || '%' AS FEM_RATE, 
+		       ROUND(FEM_CNT /(MAL_CNT + FEM_CNT) * 100,2) || '%' AS MAL_RATE,
+		       MAL_CNT,
+		       FEM_CNT,
+		       (MAL_CNT + FEM_CNT) AS TOTAL
+		FROM ATAB, BTAB
+	</select>
+
+<!-- 퇴직인원 포함 총 사원의 근속기간 조회 -->
+	<select id="serviceYearRetrieve" resultType="hashmap">
+		<![CDATA[
+		WITH ATAB AS(
+		    SELECT 
+		        CASE 
+		        WHEN (OUT_DATE IS NULL) AND (SYSDATE - ENT_DATE) <= 0 THEN '입사예정'
+		        WHEN (OUT_DATE IS NULL) AND (((SYSDATE - ENT_DATE)/30) <= 1) THEN FLOOR((SYSDATE - ENT_DATE)) || '일'
+		        WHEN (OUT_DATE IS NULL) AND (((SYSDATE - ENT_DATE)/30) <= 24) THEN ROUND(((SYSDATE - ENT_DATE)/30)) ||'개월'
+		        WHEN (OUT_DATE IS NULL) AND (((SYSDATE - ENT_DATE)/30) > 24) THEN ROUND(((SYSDATE - ENT_DATE)/30/12)) ||'년' 
+		             ||' '|| FLOOR(MOD((SYSDATE - ENT_DATE),12))||'개월'
+		        WHEN (OUT_DATE IS NOT NULL) AND (((OUT_DATE - ENT_DATE)/30) <= 24) THEN ROUND(((OUT_DATE - ENT_DATE)/30)) ||'개월'
+		        WHEN (OUT_DATE IS NOT NULL) AND (((OUT_DATE - ENT_DATE)/30) > 24) THEN ROUND(((OUT_DATE - ENT_DATE)/30/12)) ||'년'
+		             ||' '|| FLOOR(MOD((SYSDATE - ENT_DATE),12))||'개월'
+		        ELSE '해당없음'
+		        END AS WKHX
+		    FROM EMP
+		    ORDER BY EMP_NO
+		)
+		SELECT 
+		    CASE
+		    WHEN WKHX LIKE '%년%' AND SUBSTR(WKHX,0,(INSTR(WKHX,'년',1,1 )-1)) >=20 THEN SUBSTR(WKHX,0,(INSTR(WKHX,'년',1,1 )-1)) || 'Y'
+    		WHEN WKHX LIKE '%년%' THEN SUBSTR(WKHX,0,(INSTR(WKHX,'년',1,1 )-1))
+		    WHEN (INSTR(WKHX,'년') = 0 AND WKHX LIKE '%개월%') AND SUBSTR(WKHX,0,(INSTR(WKHX,'개월',1,1 )-1)) > 12 THEN SUBSTR(WKHX,0,(INSTR(WKHX,'개월',1,1 )-1)) ||'N'
+		    WHEN (INSTR(WKHX,'년') = 0 AND WKHX LIKE '%개월%') AND SUBSTR(WKHX,0,(INSTR(WKHX,'개월',1,1 )-1)) > 6 THEN SUBSTR(WKHX,0,(INSTR(WKHX,'개월',1,1 )-1)) ||'O'
+		    WHEN (INSTR(WKHX,'년') = 0 AND WKHX LIKE '%개월%') THEN SUBSTR(WKHX,0,(INSTR(WKHX,'개월',1,1 )-1)) ||'M'
+		    
+		    WHEN INSTR(WKHX,'입사예정') > 0 THEN WKHX
+		    ELSE '1개월미만' 
+		    END AS WKHX
+		FROM ATAB
+		]]>
+	</select>
+	
+<!-- 재직중인 사원의 나이 조회 -->
+	<select id="ageRetrieve" resultType="int">
+		SELECT 
+		    CASE
+		    WHEN SUBSTR(REGNO1,1,1) IN (4,5,6,7,8,9) THEN  TO_NUMBER((TO_CHAR(SYSDATE,'YYYY'))) - TO_NUMBER(('19'|| SUBSTR(REGNO1,1,2))) +1
+		    WHEN SUBSTR(REGNO1,1,1) IN (0,1,2,3) THEN TO_NUMBER((TO_CHAR(SYSDATE,'YYYY'))) - TO_NUMBER(('20'|| SUBSTR(REGNO1,1,2))) +1
+		    END AS AGE
+		FROM EMP
+		WHERE OUT_DATE IS NULL
+	</select>
+	
+<!-- 재직중인 사원의 현재 계약정보의 계약금액(연봉) 조회 -->
+	<select id="avgSalaryRetrieve" resultType="int">
+		WITH ATAB AS(
+		    SELECT CNTHX_NO, CNT_CNGR, BCNT_AMT
+		    FROM(
+		        SELECT CNT_CNGR, CNTHX_NO, BWCT_SDATE, BWCT_EDATE, BCNT_AMT, DELYN, ROW_NUMBER() OVER(PARTITION BY CNT_CNGR ORDER BY CNTHX_NO DESC) AS ROWIDX
+		        FROM CNTHX
+		        WHERE DELYN IS NULL
+		        <![CDATA[
+		        AND BWCT_SDATE <= SYSDATE
+		        AND BWCT_EDATE >= SYSDATE
+		        ]]>
+		        )
+		    WHERE ROWIDX = 1
+		    ORDER BY CNT_CNGR
+		)
+		SELECT A.BCNT_AMT
+		FROM ATAB A LEFT OUTER JOIN EMP B
+		ON A.CNT_CNGR = B.EMP_NO
+		WHERE B.OUT_DATE IS NULL
+		ORDER BY A.BCNT_AMT DESC
+	</select>
+
+<!--일자별 최소근무시간, 최대근무시간, 평균근무시간 구하기-->
+	<select id="workTimeRetrieve" resultType="hashmap">
+		SELECT  TO_CHAR(WA_DATE,'MM/DD/YYYY') || ' GMT+9' AS WA_DATE,
+		        MIN(TO_NUMBER(WA_TLTIME)) AS MINTIME,
+		        MAX(TO_NUMBER(WA_TLTIME)) AS MAXTIME,
+		        ROUND(AVG(NVL(WA_TLTIME,0)),1) AS WKAVG
+		FROM WK_AP
+		WHERE EW_APST IN '승인'
+		GROUP BY WA_DATE
+		<![CDATA[
+		HAVING MIN(TO_NUMBER(WA_TLTIME)) >0
+		]]>
+		ORDER BY WA_DATE
+	</select>
+	
+<!--부서(주조직)별 인원조회(성별 및 인원수)-->
+	<select id="sexPerDeptRetrieve" resultType="hashmap">
+		 WITH ATAB AS(
+		      SELECT MAX(ASGMT_NO) AS ASGMT_NO, ASGMT_PERS AS EMP_NO
+		      FROM ASGMT 
+		      WHERE ASGMT_PERS IN (SELECT EMP_NO FROM EMP)
+		      <![CDATA[
+		      AND ASGMT_DATE <= SYSDATE
+		      ]]>
+		      AND ASGMT_CCST IS NULL
+		      GROUP BY ASGMT_PERS
+		), BTAB AS(
+		    SELECT  DISTINCT
+		            E.EMP_GEN,
+		            E.EMP_NM,
+		            D.DNM,
+		            DCODE,
+		            E.EMP_NO,
+		            A.ASGMT_NO
+		    FROM ASGMT A INNER JOIN ATAB C ON (A.ASGMT_NO = C.ASGMT_NO 
+		                                            AND A.ASGMT_PERS = C.EMP_NO)
+		                LEFT OUTER JOIN BLG_DEPT B  ON (C.EMP_NO = B.ASGMT_PERS 
+		                                                AND C.ASGMT_NO = B.ASGMT_NO)
+		                LEFT OUTER JOIN OWN_JOB O   ON (C.EMP_NO = O.ASGMT_PERS 
+		                                                AND C.ASGMT_NO = O.ASGMT_NO)
+		                LEFT OUTER JOIN DEPT D USING(DCODE)
+		                LEFT OUTER JOIN EMP E ON (A.ASGMT_PERS = E.EMP_NO)
+		    WHERE DCODE IS NOT NULL
+		    ORDER BY DNM
+		)
+		SELECT  DNM,
+		        COUNT(*) AS "TOTAL", 
+		        COUNT(DECODE(EMP_GEN,'남자',1,'남성',1)) AS "MCNT",
+		        COUNT(DECODE(EMP_GEN,'여자',1,'여성',1)) AS "FCNT"
+		FROM BTAB
+		GROUP BY DNM, SUBSTR(DCODE,3)
+		ORDER BY SUBSTR(DCODE,3)
+	</select>	
+	
+<!-- 부서별 평균임금, 최저임금, 최고임금 조회, 상위부서순으로 정렬 -->
+	<select id="deptPerWageRetrieve" resultType="hashmap">
+		SELECT  DNM, 
+		        DCODE,
+		        ROUND(AVG(NVL(BCNT_AMT,0)),0) AS AVG_AMT,
+		        MIN(BCNT_AMT) AS MIN_AMT,
+		        MAX(BCNT_AMT) AS MAX_AMT
+		FROM DEPT_PER_WAGE
+		GROUP BY DNM,DCODE
+		ORDER BY SUBSTR(DCODE,3)
+	</select>
+	
+<!-- 재직총원숫자 -->	
+	<select id="memberCount" parameterType="string" resultType="hashmap">
+		WITH ATAB AS(
+		    SELECT TO_CHAR((
+		            SELECT COUNT(*)
+		            FROM EMP 
+		            WHERE OUT_DATE IS NULL
+				     <choose>
+					    <when test="@org.apache.commons.lang3.StringUtils@isBlank(selectedDate) and @org.apache.commons.lang3.StringUtils@isBlank(selectedDate)">
+					    	<![CDATA[
+				    		AND ENT_DATE < SYSDATE
+				    		]]>
+					    </when>
+					    <otherwise>
+					    	<![CDATA[
+					    	AND ENT_DATE < #{selectedDate, jdbcType=DATE }||'-12-31'
+					    	]]>
+					    </otherwise>
+					</choose>
+		            ),'FM990') AS THIS_EMP,
+		            TO_CHAR((SELECT COUNT(*) 
+		             FROM EMP
+		             <choose>
+					    <when test="@org.apache.commons.lang3.StringUtils@isBlank(selectedDate) and @org.apache.commons.lang3.StringUtils@isBlank(selectedDate)">
+					    	<![CDATA[
+				    		WHERE ENT_DATE <= (TO_NUMBER(TO_CHAR(SYSDATE, 'YYYY')-1)||'-12-31')
+				            AND (OUT_DATE IS NULL OR OUT_DATE >=(TO_NUMBER(TO_CHAR(SYSDATE, 'YYYY')-1)||'-12-31'))
+				    		]]>
+					    </when>
+					    <otherwise>
+					    	<![CDATA[
+					    	WHERE ENT_DATE <= (TO_NUMBER(#{selectedDate, jdbcType=DATE }-1)||'-12-31')
+				            AND (OUT_DATE IS NULL OR OUT_DATE >=(TO_NUMBER(#{selectedDate, jdbcType=DATE }-1)||'-12-31'))
+					    	]]>
+					    </otherwise>
+					</choose>
+		            ),'FM990') AS LAST_EMP
+		    FROM DUAL
+		)
+		SELECT  THIS_EMP,
+		        LAST_EMP,
+		        TO_CHAR(ROUND((THIS_EMP/LAST_EMP) * 100, 2),'FM990.00') AS GRW_RATE
+		FROM ATAB
+	</select>
+	
+<!--현재 수습중인사원 정보 조회-->
+	<select id="prMemberRetieve" resultType="hashmap">
+		<![CDATA[
+		WITH ATAB AS(
+		    SELECT  A.ASGMT_NO,
+		            A.ASGMT_PERS,
+		            B.DCODE,
+		            D.DNM
+		    FROM MAX_ASGMT A LEFT OUTER JOIN BLG_DEPT B
+		    ON A.ASGMT_NO = B.ASGMT_NO
+		    LEFT OUTER JOIN DEPT D
+		    ON B.DCODE = D.DCODE
+		), BTAB AS(
+		    SELECT  C.CNT_CNGR,
+		            C.CNT_WRITER,
+		            C.BL_CASE,
+		            C.PR_SDATE,
+		            C.PR_EDATE,
+		            C.DELYN
+		    FROM CNTHX C
+		    WHERE C.PR_SDATE <= SYSDATE
+		    AND C.PR_EDATE >= SYSDATE
+		)
+		SELECT  CNT_CNGR,
+		        BL_CASE,
+		        TO_CHAR(PR_SDATE,'YYYY-MM-DD') AS PR_SDATE,
+		        TO_CHAR(PR_EDATE,'YYYY-MM-DD') AS PR_EDATE,
+		        DNM
+		FROM BTAB LEFT OUTER JOIN ATAB
+		ON CNT_CNGR = ASGMT_PERS
+		WHERE DELYN IS NULL
+		]]>
+	</select>
+	
+	
+	
+ <!-- 각 퇴사자들의 퇴사까지 걸린 정확한 년,월,일수 -->
+	<select id="outPeriodTotal" resultType="hashmap">
+		SELECT  EMP_NO,
+		        TO_CHAR(ENT_DATE,'YYYY-MM-DD') AS ENT_DATE,
+		        TO_CHAR(OUT_DATE,'YYYY-MM-DD') AS OUT_DATE,
+		        TO_CHAR(OUT_DATE - ENT_DATE) AS "TOTAL_DAYS",
+		        TO_CHAR(ROUND((OUT_DATE - ENT_DATE)/365)) AS "YEARS",
+		        TO_CHAR(FLOOR(MOD((OUT_DATE - ENT_DATE),365)/30)) AS "MONTHS",
+		        TO_CHAR(MOD(MOD((OUT_DATE - ENT_DATE),365),30)) AS "DAYS"
+		FROM EMP
+		WHERE OUT_DATE IS NOT NULL
+	</select>
+	
+<!-- 전체 퇴사자의 평균 퇴사기간을 연,월,일의 string으로 조회 --> 
+	<select id="avgOutPeriod" resultType="String">
+		WITH ATAB AS(
+		    SELECT  EMP_NO,
+		            ENT_DATE,
+		            OUT_DATE,
+		            OUT_DATE - ENT_DATE AS "TOTAL_DAYS" 
+		    FROM EMP
+		    WHERE OUT_DATE IS NOT NULL
+		)
+		SELECT  TO_CHAR(ROUND(FLOOR(AVG(TOTAL_DAYS))/365) || ' 년 ' ||
+		        FLOOR(MOD(FLOOR(AVG(TOTAL_DAYS)),365)/30) || ' 개월 ' ||
+		        MOD(MOD(FLOOR(AVG(TOTAL_DAYS)),365),30) || ' 일' ) AS "OUTPER"
+		FROM ATAB
+	</select>
+	
+	
+
+</mapper>

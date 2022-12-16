@@ -1,0 +1,586 @@
+@charset "UTF-8";
+
+.emptable{
+ --bs-table-hover-color: #a365ff;
+ --bs-table-hover-bg: rgba(191, 107, 255, 0.06);
+
+}
+
+.filterdiv{
+    background: #f8f8f8;
+    height: 9%;
+    border: solid 1px lightgray;
+    /* border-bottom: none; */
+    
+}
+
+
+.filterbtn{
+
+    float: left;
+}
+
+.filterinsidediv{
+  padding: 12px;
+
+}
+.filterresetdiv{
+margin-left: 91%;
+}
+
+
+.listhover:hover{
+
+ color: #9066ff;
+}
+
+.ligroup{
+ border-radius: 0em;
+}
+
+.listhover{
+    border: 1px solid #e3e3e3;
+}
+
+
+.btnaa {
+    margin-left: auto;
+    height: 39px;
+    margin-top: 10px;
+}
+
+.searchaa {
+   width: 197px;
+   margin-left: auto;
+}
+
+.groupaa{
+
+ margin-left: 6px;
+}
+
+.treebtn{
+ margin-left: 6px;
+}
+
+.downloadbtn{
+  margin-left: 6px;
+}
+
+.gridbtn{
+  margin-left: 6px;
+      margin-right: 16px;
+}
+
+.emplistimgsize{
+    width: 3rem;
+    height: 3rem;
+   
+}
+.empListimgradius{
+   
+   border-radius: 31% !important;
+}
+
+.emplistspan{
+   text-overflow: ellipsis;
+    max-width: 500px;
+    /* box-sizing: border-box; */
+    font-size: 13px;
+   
+}
+
+.emplistdiv{
+   padding-left: 12px;
+    padding-right: 12px;
+    height: 36px;
+    background-color: #fff8ee;
+    border-radius: 12px;
+    z-index: 2;
+    /* align-items: center; */
+    padding-top: 7px;
+}
+
+.cnticon{
+   
+
+    min-width: 48px;
+    width: 48px;
+    height: 48px;
+    background-color: rgb(174 148 255 / 19%);
+    border-radius: 24px;
+    margin-left: auto;
+
+}
+
+.cntcard{
+   
+   display: flex;
+}
+.cnti{
+   
+   padding: 6px;
+       color: #575187;
+}
+
+.cnttablewidth{
+   padding-right: 13px !important;
+    padding-left: 13px !important;
+   
+}
+.cnttable{
+   
+   border: solid 1px lightgray;
+}
+
+.ctnfilter {
+   background: none;
+   color: #a022ef;
+   border: none;
+   box-shadow: none;
+   
+}
+
+.cntfilterdiv{
+   display: flex;
+}
+
+.cntbtn{
+   
+   margin-left: auto;
+   
+} 
+
+.cnttr{
+
+   font-size: 15px;
+}
+ 
+
+.cntth{
+   
+   padding-bottom: 0.9rem;
+}
+
+.cntborder{
+   
+       border-bottom: transparent;
+}
+
+.statusdiv{
+   margin-top: 10px;
+}
+
+.cntcheckcolor{
+   
+   background-color: #9569ff;
+    border-color: #b169ff;
+}
+
+/* .cntchecklabel{
+       margin-left: 10px;
+}
+.cntcheckbox{
+      padding-left: 2.7em;
+} */
+.transferdiv{
+   background: #f8f8f8;
+    height: 9%;
+    border: solid 1px #ebebeb;
+}
+
+.transferpadding{
+       padding: 9px;
+}
+
+.tranfertitle{
+   font-size: 0.7em;
+    color: gray;
+}
+
+.translistborder{
+       border: solid 1px #dedede;
+}
+.translistpadding{
+       padding: 0.58rem 0.6rem;
+}
+.translistbg{
+   padding: 0.5em 0.5em;
+    font-size: 0.6em;
+}
+.translistfont{
+   font-size: 77% !important;
+    color: darkgray;
+}
+.transdateborder{
+    padding-left: 12px;
+    padding-right: 12px;
+    height: 24px;
+    background-color: #ffffff;
+    border-radius: 19px;
+    z-index: 2;
+    align-items: center;
+    /* padding-top: 7px; */
+    /* padding-bottom: 7px; */
+    border: solid 1px #d0d0d0;
+    margin-left: auto;
+}
+.transcal{
+   vertical-align: text-bottom;
+    font-size: 0.9rem;
+}
+.transimg{
+   border-radius: 39% !important;
+   width: 2.2rem;
+    height: 2.2rem;
+    border: solid 2px white;
+    margin-left: -11px;
+}
+.transname{
+       font-size: 0.8rem;
+}
+.transfermodal{
+    color: #9048ff;
+    border-color: #c8c8c8;
+}
+
+.hide{
+   
+   display: none;
+}
+
+.translistpadding:hover .hide{
+   display: inline-block;
+   
+}
+
+.translistpadding:hover .unhide{
+   display: none;
+}  
+
+.transmodify {
+   border-radius: 0.575rem;
+   min-width: 9rem;
+   padding: 0.3125rem 0;
+   font-size: 0.85rem;
+   }
+.transmodia{
+       color: #2e2e2e;
+           padding: 0.332rem 1.25rem;
+}
+.noticebtn{
+       width: 100%;
+}
+
+.transnotictooltip{
+   margin-left: auto;
+}
+
+.sortheader{
+margin-left: auto;
+}
+.transmodal{
+   display: block;
+}
+
+.formcon{
+       padding: 0px 24.5em !important ;
+ 
+   
+}
+
+.empFormheader{
+   display: flex;
+   
+}
+
+.empformcardheader:hover{
+   cursor: pointer;
+   background: lightgray;
+}
+
+.empaddbutton{
+   
+   margin-left: auto;
+}
+
+.cardhide{
+   display: none;
+}
+
+.empaddcheck:checked{
+   background-color: #8f69ff !important ;
+    border-color: #8f69ff!important ;
+    width: 2.8em !important ;
+    height: 1.7em !important ;
+
+}
+
+
+
+
+.empaddcheck{
+      border-color: #8f69ff!important ;
+    margin-right:15em;
+   width: 2.8em !important ;
+    height: 1.7em !important ;
+}
+.empchecklabel{
+       font-size: 1.3em;
+       margin-right: 24em;
+}
+
+.arcodiancheck{
+  display: flex;
+}
+
+.mypageimg{
+       border-radius: 2.375rem !important;
+   
+}
+
+.uploadbtn{
+       margin-left: -2.2em;
+    margin-top: 7.5em;
+   padding: 0.3rem 0.5rem;
+   border : solid 1px white;
+}
+.empname{
+   font-size: 1.7em;
+    font-weight: 600;
+}
+
+.mypageinfo{
+   display: flex;
+   flex-direction: column;
+}
+
+.mypageheadernav{
+       border-bottom: solid 1px lightgray;
+}
+
+.infohistorybtn{
+   
+   padding: 0.3375rem 0.5rem;
+    font-size: 0.8375rem;
+}
+
+.mypagetablewidth{
+   width:80%
+}
+
+.mypagerightwidth{
+       width: 18.5%;
+       height: max-content;
+}
+
+.mypagecardheigh{
+   height: 36%
+}
+.tdwidth{
+    width: 28%;
+        padding-left: 1.5rem;
+   
+}
+.mypagetoggle{
+   width: 704px;
+}
+.basicnamediv{
+   margin-right: 4%;
+    width: 48%;
+   
+}
+.basicenglishname{
+    width: 48%;
+}
+.careericon{
+   color: #793eff;
+}
+.mypagecareerimgsize{
+       width: 2.3rem;
+    height: 2rem;
+}
+
+.careerlineh{
+   line-height: 3.6;
+}
+
+.careerinputwidth{
+    width: 21em;
+    
+    }
+    
+.hrnotewrite{
+   height: 12em;
+}
+.infohistoryh{
+       height: 83vh;
+}
+.infohistorybtn{
+   border-radius: 1.375rem;
+   font-size: 17px;
+    font-weight: 400;
+}
+
+.infohistorybottom{
+       border-bottom: solid 1px lightgray;
+}
+
+.memo{
+       color: #7d53ff;
+    background-color: #ffffff;
+    border-color: #ffffff;
+}
+
+.quickbackbtn{
+   background-color: whitesmoke;
+}
+.quickbackbtn:hover{
+   background-color: #dfdfdf;
+}
+.quicklabel{
+    background-color: white;
+    border: solid 1px lightgray;
+    padding: 0.5em;
+    position: fixed;
+    margin-bottom: 10em;
+    margin-left: -1.8em;
+    font-size: 0.9em;
+    border-radius: 14px;
+}
+
+.valired{
+   color:red;
+}
+.modalmargin{
+       margin: 7rem auto;
+}
+.quickicon{
+   display:none;
+   margin-left: auto;
+    color: lightgray;
+}
+.quickli{
+   display: flex;
+}
+.quickli:hover .quickicon{
+   
+   display: inline-block;
+}
+
+.quickempimg{
+   
+   border-radius: 40%  !important;
+}
+.cerfrightborder{
+       border-right: 28px solid transparent;
+       font-weight: normal;
+}
+.cerfTitle{
+   /* 증명서 제목 폰트 크기 */
+	font-size: 55px;
+    color: black;
+    margin-bottom: 32px;
+   
+}
+.cerfTableMargin{
+   
+/*    margin-top:100rem; */
+}
+
+.cerfTableTitle{
+   font-size: 35px;
+   border-bottom: solid 4px black;
+    margin-top: 35px; 
+   
+}
+.cerfTableCss{
+   font-size: 23.8px;
+   /* height: 400px; */
+   
+}
+.cerfTableTr{
+   height: 50px;
+}
+.cerfComNm{
+   margin-right: 70px;
+}
+.cerfFooter{
+   margin-top: 32px;
+}
+
+.cerfStamp{
+    position: absolute;
+    width: 130px;
+    height: 130px;
+    bottom: 22px;
+    right: 54px;
+   
+}
+
+.stampmargin{
+    overflow: visible;
+    height:inherit;
+   margin-top: 2rem;
+}
+.cardhover{
+	border: 1px solid gray;
+}
+.cardb:hover > cardhover {
+	border: 1px solid red;
+}
+
+/* .workCerftext{
+	display: none;
+} */
+
+/* 
+input[id='inlineRadioWorkCerf4']:checked ~ .workCerftext{
+	display: block; 	
+} */
+.empCerfDownBtn{
+	background: transparent;
+	border: none;
+}
+.empCerfDownBtn:hover{
+	background-color: #F5F5F5;
+	border-radius: 5px;
+	
+}
+
+.empCerfHistryBtn{
+	background: transparent;
+	border: none;
+	color: #3C97FF;
+}
+
+.empCerfHistryBtn:hover{
+	background-color: #F5F5F5;
+	color: #3C97FF;
+	border-radius: 5px;
+}
+.empCerfTableTr{
+	background: #F9F9F9;
+}
+
+.myCerfScroll{
+	height: 35vh !important;
+}
+.loginCard{
+	background: transparent;
+    box-shadow: none;
+    width: 24rem;
+}
+
+.loginBack{
+	position: absolute;
+    width: 100%;
+    height: 100%;
+}
+
+.empCerfScroll{
+	height: 38vh;
+}
+.myscrollheight{
+	height: 68vh;
+}

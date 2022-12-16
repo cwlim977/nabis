@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE tiles-definitions PUBLIC "-//Apache Software Foundation//DTD Tiles Configuration 3.0//EN" "http://tiles.apache.org/dtds/tiles-config_3_0.dtd" >
+<tiles-definitions>
+	
+<!-- 	<definition name="parent" template="/WEB-INF/views/template.jsp"> -->
+<!-- 		<put-attribute name="title" value="Company403" /> -->
+<!-- 		<put-attribute name="preScript" value="/includee/preScript.jsp" /> -->
+<!-- 		<put-attribute name="headerMenu" value="/includee/headerMenu.jsp" /> -->
+<!-- 		<put-attribute name="leftMenu" value="/includee/leftMenu.jsp" /> -->
+<!-- 		<put-attribute name="footer" value="/includee/footer.jsp" /> -->
+<!-- 		<put-attribute name="postScript" value="/includee/postScript.jsp" /> -->
+<!-- 	</definition> -->
+	
+
+	<!-- 인사이트 메인 -->
+  <definition name="insight/main" extends="parent" >
+  	<put-attribute name="title" value="인사이트" />
+  	<put-attribute name="headerMenu" value="/includee/footer.jsp" />
+  	<put-attribute name="main" value="/WEB-INF/views/insight/main.jsp" />
+  </definition>
+  
+<!--  아래 주소들을 공통으로 사용할 수있으나, title 따로 지정하려고 분리함. 어차피 3개밖에 안되서 -->
+<!--   <definition name="workflow/archive/*" extends="parent" preparer="kr.or.ddit.workflow.view.WorkflowViewPreparer" > -->
+<!--   	<put-attribute name="main" value="/WEB-INF/views/workflow/archive/{1}.jsp" /> -->
+<!--   </definition> -->
+
+	<!-- 내 문서함 -->
+  <definition name="workflow/archive/my" extends="parent" preparer="kr.or.ddit.workflow.view.WorkflowViewPreparer" >
+  	<put-attribute name="title" value="내 문서함" />
+  	<put-attribute name="headerMenu" value="/includee/workflowHeaderMenu.jsp" />
+  	<put-attribute name="main" value="/WEB-INF/views/workflow/archive/my.jsp" />
+  </definition>
+  
+	<!-- 회사 문서함 -->
+  <definition name="workflow/archive/all" extends="parent" preparer="kr.or.ddit.workflow.view.WorkflowViewPreparer" >
+  	<put-attribute name="title" value="회사 문서함" />
+ 	<put-attribute name="headerMenu" value="/includee/workflowHeaderMenu.jsp" />
+  	<put-attribute name="main" value="/WEB-INF/views/workflow/archive/all.jsp" />
+  </definition>
+
+	<!-- 작성하기 -->
+  <definition name="workflow/write/*" extends="parent" preparer="kr.or.ddit.workflow.view.WorkflowWritePreparer">
+  	<put-attribute name="title" value="내 문서함" />
+ 	<put-attribute name="headerMenu" value="/includee/workflowWriteHeaderMenu.jsp" />  	
+  	<put-attribute name="main" value="/WEB-INF/views/workflow/write/{1}.jsp" />
+  </definition>
+
+  
+</tiles-definitions>

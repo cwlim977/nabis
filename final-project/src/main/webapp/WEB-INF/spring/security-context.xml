@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:c="http://www.springframework.org/schema/c"
+	xmlns:p="http://www.springframework.org/schema/p"
+	xmlns:security="http://www.springframework.org/schema/security"
+	xmlns:mvc="http://www.springframework.org/schema/mvc"
+	xsi:schemaLocation="http://www.springframework.org/schema/security http://www.springframework.org/schema/security/spring-security-4.2.xsd
+		http://www.springframework.org/schema/mvc http://www.springframework.org/schema/mvc/spring-mvc-4.3.xsd
+		http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+	<security:authentication-manager id="authenticationManager">
+		<security:authentication-provider user-service-ref="authService">
+			<security:password-encoder ref="passwordEncoder" />
+		</security:authentication-provider>
+	</security:authentication-manager>
+	
+	
+	<bean id="authenticationSuccessHandler" class="kr.or.ddit.commons.security.handler.AuthIDAuthenticationSuccessHandler" 
+		p:defaultTargetUrl="/"
+		p:alwaysUseDefaultTargetUrl="true"
+	/>
+	
+	<security:http pattern="/resources/**" security="none"></security:http>
+	
+	<security:http authentication-manager-ref="authenticationManager" auto-config="true" use-expressions="true">
+		<security:form-login 
+			login-page="/login/login.do" 
+			username-parameter="empNo"
+			password-parameter="empPass"
+			login-processing-url="/login/loginCheck.do"	
+			authentication-success-handler-ref="authenticationSuccessHandler"	
+		/>
+		<security:logout 
+			logout-url="/login/logout.do"
+			logout-success-url="/login/login.do"
+		/>	
+		<security:intercept-url pattern="/login/login.do" access="permitAll"/> 
+		<security:intercept-url pattern="/login/regCheck.do" access="permitAll"/> 
+		<security:intercept-url pattern="/login/passwordReset.do" access="permitAll"/>
+		<security:intercept-url pattern="/memberVacation/vacApplyManage.do" access="isAuthenticated()"/>
+		<security:intercept-url pattern="/memberVacation/getVacApplyDetail.do" access="isAuthenticated()"/>
+		<security:intercept-url pattern="/memberVacation/*" access="hasAnyRole('ADMIN','MANAGER')"/>
+		<security:intercept-url pattern="/vacationConfig/*" access="hasRole('ADMIN')"/>
+		<security:intercept-url pattern="/insight/*" access="hasRole('ADMIN')"/>
+		<security:intercept-url pattern="/setting/*" access="hasRole('ADMIN')"/>
+		<security:intercept-url pattern="/**" access="isAuthenticated()"/>
+		<security:csrf />
+	</security:http>
+	
+	<mvc:view-controller path="/login/login.do" view-name="/login"/>
+</beans>

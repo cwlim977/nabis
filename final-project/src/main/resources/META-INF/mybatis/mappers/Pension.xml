@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.or.ddit.pay.dao.PensionDAO">
+
+	<select id="selectPensionList" resultType="PensionVO">
+		SELECT PS_EMPNO
+			 , CAL_SDATE
+			 , PS_CASE
+			 , PS_SDATE
+			 , PS_BANK
+			 , PS_ACNT
+			 , PS_ST
+		FROM PENSION
+	</select>
+</mapper>

@@ -1,0 +1,9 @@
+@charset "UTF-8";
+
+button:hover{
+	background-color : #D3D3D3;
+}
+	
+.cursor-pointer:hover{
+	background-color : #D3D3D3;
+}
